@@ -120,8 +120,13 @@ def parse_params(defaults: dict, description: str, argv=None) -> dict:
     """Merge defaults, an optional YAML config and ``--set key=value`` overrides."""
     p = argparse.ArgumentParser(description=description)
     p.add_argument("--config", type=Path, default=None, help="YAML file with parameters")
-    p.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE",
-                   help="override parameters, values are parsed as YAML scalars")
+    p.add_argument(
+        "--set",
+        nargs="*",
+        default=[],
+        metavar="KEY=VALUE",
+        help="override parameters, values are parsed as YAML scalars",
+    )
     args = p.parse_args(argv)
     params = dict(defaults)
     if args.config:

@@ -52,9 +52,7 @@ def entity_scores(gold: list[list[Span]], pred: list[list[Span]]) -> dict:
     return {
         "micro": prf(tp, n_pred, n_gold),
         "span_only": prf(untyped_tp, n_pred, n_gold),
-        "per_type": {
-            k: prf(v["tp"], v["pred"], v["gold"]) for k, v in sorted(per_type.items())
-        },
+        "per_type": {k: prf(v["tp"], v["pred"], v["gold"]) for k, v in sorted(per_type.items())},
     }
 
 
@@ -66,9 +64,7 @@ def _relation_key(r: Relation, strict: bool) -> tuple:
     return (h, t, r.label)
 
 
-def relation_scores(
-    gold: Iterable[list[Relation]], pred: Iterable[list[Relation]]
-) -> dict:
+def relation_scores(gold: Iterable[list[Relation]], pred: Iterable[list[Relation]]) -> dict:
     gold, pred = list(gold), list(pred)
     out = {}
     for name, strict in (("boundaries", False), ("strict", True)):

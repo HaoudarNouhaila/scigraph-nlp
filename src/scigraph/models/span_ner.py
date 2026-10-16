@@ -51,8 +51,8 @@ class SpanNERModel(nn.Module):
         from transformers import AutoModel
 
         self.config = config
-        self.encoder = encoder if encoder is not None else AutoModel.from_pretrained(
-            config.encoder_name
+        self.encoder = (
+            encoder if encoder is not None else AutoModel.from_pretrained(config.encoder_name)
         )
         hidden = self.encoder.config.hidden_size
         self.width_embedding = nn.Embedding(config.max_span_length + 1, config.width_embedding_dim)
@@ -134,7 +134,9 @@ def sentence_contexts(sentences: list[Sentence], window_words: int = 60):
             left = sentences[k].tokens + left
             k -= 1
         k = idx + 1
-        while k < len(sentences) and sentences[k].doc_key == s.doc_key and len(right) < window_words:
+        while (
+            k < len(sentences) and sentences[k].doc_key == s.doc_key and len(right) < window_words
+        ):
             right = right + sentences[k].tokens
             k += 1
         yield left[-window_words:], right[:window_words]

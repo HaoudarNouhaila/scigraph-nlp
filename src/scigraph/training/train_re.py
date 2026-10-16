@@ -67,15 +67,15 @@ DEFAULTS = {
     "seed": 42,
     "fp16": True,
     "save_every": 0,
-    "negative_ratio": None,  # keep at most N negatives per positive in training (None: all)
+    # Negatives per positive, resampled every epoch (None: use all candidate pairs).
+    "negative_ratio": None,
     "max_train_sentences": None,
     "max_eval_sentences": None,
 }
 
 
 @torch.no_grad()
-def predict(model, tokenizer, sentences, device, max_length, batch_size=64,
-            entities_override=None):
+def predict(model, tokenizer, sentences, device, max_length, batch_size=64, entities_override=None):
     model.eval()
     instances = build_instances(tokenizer, sentences, max_length, entities_override)
     all_probs = []
@@ -90,8 +90,7 @@ def predict(model, tokenizer, sentences, device, max_length, batch_size=64,
 
 
 def evaluate(model, tokenizer, sentences, device, max_length, batch_size, entities_override=None):
-    preds = predict(model, tokenizer, sentences, device, max_length, batch_size,
-                    entities_override)
+    preds = predict(model, tokenizer, sentences, device, max_length, batch_size, entities_override)
     gold = [s.relations for s in sentences]
     scores = relation_scores(gold, preds)
     scores["confusion"] = relation_confusion(gold, preds)
@@ -128,21 +127,27 @@ def train(params: dict) -> dict:
         dev_s = dev_s[: params["max_eval_sentences"]]
         test_s = test_s[: params["max_eval_sentences"]]
 
-    cfg = RelationConfig(encoder_name=params["encoder_name"],
-                         max_seq_length=params["max_seq_length"])
+    cfg = RelationConfig(
+        encoder_name=params["encoder_name"], max_seq_length=params["max_seq_length"]
+    )
     tokenizer = prepare_tokenizer(AutoTokenizer.from_pretrained(cfg.encoder_name))
     model = RelationModel(cfg, vocab_size=len(tokenizer)).to(device)
 
-    train_inst = build_instances(tokenizer, train_s, cfg.max_seq_length, training=True)
-    label_counts = Counter(RE_LABELS[i.label] for i in train_inst)
-    if params["negative_ratio"]:
-        rng = random.Random(params["seed"])
-        pos = [i for i in train_inst if i.label != 0]
-        neg = [i for i in train_inst if i.label == 0]
-        rng.shuffle(neg)
-        train_inst = pos + neg[: int(params["negative_ratio"] * len(pos))]
+    all_inst = build_instances(tokenizer, train_s, cfg.max_seq_length, training=True)
+    label_counts = Counter(RE_LABELS[i.label] for i in all_inst)
+    positives = [i for i in all_inst if i.label != 0]
+    negatives = [i for i in all_inst if i.label == 0]
 
-    steps_per_epoch = math.ceil(len(train_inst) / params["batch_size"])
+    def epoch_instances(epoch: int):
+        """All instances, or all positives plus a fresh negative sample for this epoch."""
+        if not params["negative_ratio"]:
+            return all_inst
+        rng = random.Random(params["seed"] * 1000 + epoch)
+        k = min(len(negatives), int(params["negative_ratio"] * len(positives)))
+        return positives + rng.sample(negatives, k)
+
+    epoch_size = len(epoch_instances(0))
+    steps_per_epoch = math.ceil(epoch_size / params["batch_size"])
     total_steps = steps_per_epoch * params["epochs"]
     optimizer = torch.optim.AdamW(
         grouped_parameters(model, params["encoder_lr"], params["head_lr"], params["weight_decay"])
@@ -157,16 +162,24 @@ def train(params: dict) -> dict:
     ckpt = CheckpointManager(out / "checkpoints")
     start_epoch, global_step, best = 0, 0, -1.0
     if ckpt.exists():
-        state = ckpt.load(model=model, optimizer=optimizer, scheduler=scheduler,
-                          scaler=scaler, device=device)
+        state = ckpt.load(
+            model=model, optimizer=optimizer, scheduler=scheduler, scaler=scaler, device=device
+        )
         start_epoch, global_step, best = state["epoch"], state["step"], state["best"]
         logger.log(event="resume", epoch=start_epoch, step=global_step, best_dev_f1=best)
     else:
-        logger.log(event="start", device=str(device), train_instances=len(train_inst),
-                   label_counts=dict(label_counts), total_steps=total_steps)
+        logger.log(
+            event="start",
+            device=str(device),
+            train_instances=len(all_inst),
+            instances_per_epoch=epoch_size,
+            label_counts=dict(label_counts),
+            total_steps=total_steps,
+        )
 
     for epoch in range(start_epoch, params["epochs"]):
         model.train()
+        train_inst = epoch_instances(epoch)
         order = list(range(len(train_inst)))
         random.Random(params["seed"] + epoch).shuffle(order)
         skip = global_step - epoch * steps_per_epoch
@@ -196,24 +209,49 @@ def train(params: dict) -> dict:
             global_step += 1
             running += loss.item()
             if global_step % 100 == 0:
-                logger.log(event="step", epoch=epoch, step=global_step,
-                           loss=round(running / 100, 5), elapsed=round(time.time() - t0, 1))
+                logger.log(
+                    event="step",
+                    epoch=epoch,
+                    step=global_step,
+                    loss=round(running / 100, 5),
+                    elapsed=round(time.time() - t0, 1),
+                )
                 running = 0.0
             if params["save_every"] and global_step % params["save_every"] == 0:
-                ckpt.save(model=model, optimizer=optimizer, scheduler=scheduler, scaler=scaler,
-                          epoch=epoch, step=global_step, best=best)
+                ckpt.save(
+                    model=model,
+                    optimizer=optimizer,
+                    scheduler=scheduler,
+                    scaler=scaler,
+                    epoch=epoch,
+                    step=global_step,
+                    best=best,
+                )
 
-        dev_scores, _ = evaluate(model, tokenizer, dev_s, device, cfg.max_seq_length,
-                                 params["eval_batch_size"])
+        dev_scores, _ = evaluate(
+            model, tokenizer, dev_s, device, cfg.max_seq_length, params["eval_batch_size"]
+        )
         f1 = dev_scores["boundaries"]["micro"]["f1"]
-        logger.log(event="dev", epoch=epoch + 1, step=global_step,
-                   **dev_scores["boundaries"]["micro"], epoch_seconds=round(time.time() - t0, 1))
+        logger.log(
+            event="dev",
+            epoch=epoch + 1,
+            step=global_step,
+            **dev_scores["boundaries"]["micro"],
+            epoch_seconds=round(time.time() - t0, 1),
+        )
         if f1 > best:
             best = f1
             save_model(model, tokenizer, out / "best")
             logger.log(event="new_best", epoch=epoch + 1, dev_f1=f1)
-        ckpt.save(model=model, optimizer=optimizer, scheduler=scheduler, scaler=scaler,
-                  epoch=epoch + 1, step=global_step, best=best)
+        ckpt.save(
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            scaler=scaler,
+            epoch=epoch + 1,
+            step=global_step,
+            best=best,
+        )
 
     return final_evaluation(params, dev_s, test_s, device, logger)
 
@@ -243,8 +281,10 @@ def final_evaluation(params, dev_s, test_s, device, logger) -> dict:
         results["experiment_b_predicted_entities"] = "skipped: ner_predictions_dir not set"
 
     (out / "metrics.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
-    summary = {"event": "final",
-               "A_test_f1": results["experiment_a_gold_entities"]["test"]["boundaries"]["micro"]["f1"]}
+    summary = {
+        "event": "final",
+        "A_test_f1": results["experiment_a_gold_entities"]["test"]["boundaries"]["micro"]["f1"],
+    }
     if isinstance(results["experiment_b_predicted_entities"], dict):
         b = results["experiment_b_predicted_entities"]["test"]
         summary["B_test_f1_boundaries"] = b["boundaries"]["micro"]["f1"]

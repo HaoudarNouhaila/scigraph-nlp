@@ -75,8 +75,17 @@ def featurize(tokenizer, sentences, cfg: SpanNERConfig, context_words: int):
 
 
 @torch.no_grad()
-def predict(model, tokenizer, sentences, cfg, context_words, device, batch_size=32,
-            allow_overlap=True, return_scores=False):
+def predict(
+    model,
+    tokenizer,
+    sentences,
+    cfg,
+    context_words,
+    device,
+    batch_size=32,
+    allow_overlap=True,
+    return_scores=False,
+):
     model.eval()
     feats = featurize(tokenizer, sentences, cfg, context_words)
     preds = []
@@ -93,8 +102,9 @@ def predict(model, tokenizer, sentences, cfg, context_words, device, batch_size=
 
 
 def evaluate(model, tokenizer, sentences, cfg, context_words, device, allow_overlap=True):
-    preds = predict(model, tokenizer, sentences, cfg, context_words, device,
-                    allow_overlap=allow_overlap)
+    preds = predict(
+        model, tokenizer, sentences, cfg, context_words, device, allow_overlap=allow_overlap
+    )
     return entity_scores([s.entities for s in sentences], preds), preds
 
 
@@ -126,9 +136,7 @@ def train(params: dict) -> dict:
     tokenizer = AutoTokenizer.from_pretrained(cfg.encoder_name)
     model = SpanNERModel(cfg).to(device)
     train_feats = featurize(tokenizer, train_s, cfg, params["context_words"])
-    gold_too_long = sum(
-        1 for s in train_s for e in s.entities if e.length > cfg.max_span_length
-    )
+    gold_too_long = sum(1 for s in train_s for e in s.entities if e.length > cfg.max_span_length)
 
     steps_per_epoch = math.ceil(len(train_feats) / params["batch_size"])
     total_steps = steps_per_epoch * params["epochs"]
@@ -145,14 +153,20 @@ def train(params: dict) -> dict:
     ckpt = CheckpointManager(out / "checkpoints")
     start_epoch, global_step, best = 0, 0, -1.0
     if ckpt.exists():
-        state = ckpt.load(model=model, optimizer=optimizer, scheduler=scheduler,
-                          scaler=scaler, device=device)
+        state = ckpt.load(
+            model=model, optimizer=optimizer, scheduler=scheduler, scaler=scaler, device=device
+        )
         start_epoch, global_step, best = state["epoch"], state["step"], state["best"]
         logger.log(event="resume", epoch=start_epoch, step=global_step, best_dev_f1=best)
     else:
-        logger.log(event="start", device=str(device), train_sentences=len(train_s),
-                   dev_sentences=len(dev_s), gold_entities_longer_than_max_span=gold_too_long,
-                   total_steps=total_steps)
+        logger.log(
+            event="start",
+            device=str(device),
+            train_sentences=len(train_s),
+            dev_sentences=len(dev_s),
+            gold_entities_longer_than_max_span=gold_too_long,
+            total_steps=total_steps,
+        )
 
     for epoch in range(start_epoch, params["epochs"]):
         model.train()
@@ -185,24 +199,49 @@ def train(params: dict) -> dict:
             global_step += 1
             running += loss.item()
             if global_step % 50 == 0:
-                logger.log(event="step", epoch=epoch, step=global_step,
-                           loss=round(running / 50, 5), elapsed=round(time.time() - t0, 1))
+                logger.log(
+                    event="step",
+                    epoch=epoch,
+                    step=global_step,
+                    loss=round(running / 50, 5),
+                    elapsed=round(time.time() - t0, 1),
+                )
                 running = 0.0
             if params["save_every"] and global_step % params["save_every"] == 0:
-                ckpt.save(model=model, optimizer=optimizer, scheduler=scheduler, scaler=scaler,
-                          epoch=epoch, step=global_step, best=best)
+                ckpt.save(
+                    model=model,
+                    optimizer=optimizer,
+                    scheduler=scheduler,
+                    scaler=scaler,
+                    epoch=epoch,
+                    step=global_step,
+                    best=best,
+                )
 
-        dev_scores, _ = evaluate(model, tokenizer, dev_s, cfg, params["context_words"], device,
-                                 params["allow_overlap"])
+        dev_scores, _ = evaluate(
+            model, tokenizer, dev_s, cfg, params["context_words"], device, params["allow_overlap"]
+        )
         f1 = dev_scores["micro"]["f1"]
-        logger.log(event="dev", epoch=epoch + 1, step=global_step, **dev_scores["micro"],
-                   epoch_seconds=round(time.time() - t0, 1))
+        logger.log(
+            event="dev",
+            epoch=epoch + 1,
+            step=global_step,
+            **dev_scores["micro"],
+            epoch_seconds=round(time.time() - t0, 1),
+        )
         if f1 > best:
             best = f1
             save_model(model, tokenizer, out / "best")
             logger.log(event="new_best", epoch=epoch + 1, dev_f1=f1)
-        ckpt.save(model=model, optimizer=optimizer, scheduler=scheduler, scaler=scaler,
-                  epoch=epoch + 1, step=global_step, best=best)
+        ckpt.save(
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            scaler=scaler,
+            epoch=epoch + 1,
+            step=global_step,
+            best=best,
+        )
 
     return final_evaluation(params, dev_s, test_s, device, logger)
 
@@ -215,8 +254,9 @@ def final_evaluation(params, dev_s, test_s, device, logger) -> dict:
     cfg = model.config
     results = {}
     for name, sents in (("dev", dev_s), ("test", test_s)):
-        scores, preds = evaluate(model, tokenizer, sents, cfg, params["context_words"], device,
-                                 params["allow_overlap"])
+        scores, preds = evaluate(
+            model, tokenizer, sents, cfg, params["context_words"], device, params["allow_overlap"]
+        )
         nested_pred = sum(
             1
             for p in preds
@@ -228,13 +268,20 @@ def final_evaluation(params, dev_s, test_s, device, logger) -> dict:
         results[name] = scores
         with open(out / f"predictions_{name}.jsonl", "w", encoding="utf-8") as f:
             for s, p in zip(sents, preds, strict=True):
-                f.write(json.dumps({
-                    "doc_key": s.doc_key, "sent_id": s.sent_id,
-                    "entities": [[e.start, e.end, e.label] for e in p],
-                }) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "doc_key": s.doc_key,
+                            "sent_id": s.sent_id,
+                            "entities": [[e.start, e.end, e.label] for e in p],
+                        }
+                    )
+                    + "\n"
+                )
     (out / "metrics.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
-    logger.log(event="final", dev_f1=results["dev"]["micro"]["f1"],
-               test_f1=results["test"]["micro"]["f1"])
+    logger.log(
+        event="final", dev_f1=results["dev"]["micro"]["f1"], test_f1=results["test"]["micro"]["f1"]
+    )
     return results
 
 

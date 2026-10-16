@@ -69,10 +69,13 @@ class RelationModel(nn.Module):
         from transformers import AutoModel
 
         self.config = config
-        self.encoder = encoder if encoder is not None else AutoModel.from_pretrained(
-            config.encoder_name
+        self.encoder = (
+            encoder if encoder is not None else AutoModel.from_pretrained(config.encoder_name)
         )
-        if vocab_size is not None and self.encoder.get_input_embeddings().num_embeddings != vocab_size:
+        if (
+            vocab_size is not None
+            and self.encoder.get_input_embeddings().num_embeddings != vocab_size
+        ):
             self.encoder.resize_token_embeddings(vocab_size)
         hidden = self.encoder.config.hidden_size
         self.dropout = nn.Dropout(config.dropout)
@@ -138,9 +141,7 @@ def build_instance(
         head_pos -= shift
         tail_pos -= shift
     ids = tokenizer.convert_tokens_to_ids(pieces)
-    return RelationInstance(
-        sentence_index, head, tail, RE_LABEL2ID[label], ids, head_pos, tail_pos
-    )
+    return RelationInstance(sentence_index, head, tail, RE_LABEL2ID[label], ids, head_pos, tail_pos)
 
 
 def candidate_pairs(entities: list[Span]) -> list[tuple[Span, Span]]:
