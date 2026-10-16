@@ -35,6 +35,26 @@ def unescape_ptb(tokens: list[str]) -> list[str]:
     return [PTB_BRACKETS.get(t, t) for t in tokens]
 
 
+NO_SPACE_BEFORE = {",", ".", ";", ":", ")", "]", "}", "?", "!", "'s", "n't", "%"}
+NO_SPACE_AFTER = {"(", "[", "{"}
+
+
+def detokenize(tokens: list[str]) -> tuple[str, list[tuple[int, int]]]:
+    """Join PTB-style tokens into readable text and return each token's char offsets."""
+    tokens = unescape_ptb(tokens)
+    parts: list[str] = []
+    offsets: list[tuple[int, int]] = []
+    pos = 0
+    for i, tok in enumerate(tokens):
+        if i > 0 and tok not in NO_SPACE_BEFORE and tokens[i - 1] not in NO_SPACE_AFTER:
+            parts.append(" ")
+            pos += 1
+        offsets.append((pos, pos + len(tok)))
+        parts.append(tok)
+        pos += len(tok)
+    return "".join(parts), offsets
+
+
 def singularize(word: str) -> str:
     w = word
     if len(w) <= 3 or w in NON_PLURAL_S or not w.isalpha():
@@ -48,8 +68,18 @@ def singularize(word: str) -> str:
     return w
 
 
+TRAILING_ACRONYM = re.compile(r"^(?P<long>.+?)\s*\(\s*(?P<short>[A-Za-z][A-Za-z0-9\-]{1,10})\s*\)$")
+
+
 def normalize_mention(text: str) -> str:
-    """Canonical key for a mention, e.g. 'The Neural Networks' -> 'neural network'."""
+    """Canonical key for a mention, e.g. 'The Neural Networks' -> 'neural network'.
+
+    A trailing acronym definition is dropped when it matches the long form, so that
+    'conditional random field (CRF)' and 'conditional random field' share a key.
+    """
+    m = TRAILING_ACRONYM.match(text.strip())
+    if m and acronym_matches(m.group("short"), m.group("long")):
+        text = m.group("long")
     t = unicodedata.normalize("NFKC", text).lower()
     t = re.sub(r"\s*-\s*", "-", t)
     t = re.sub(r"[\"'`‘’“”]", "", t)

@@ -92,6 +92,37 @@ def test_networkx_analytics():
     assert analytics.shortest_paths(g, "a", "d", max_hops=2) == []
 
 
+def test_candidate_links_are_hypotheses_between_unlinked_pairs():
+    rows = ROWS + [
+        {
+            "id": "t4",
+            "head_id": "e",
+            "head": "HMM",
+            "head_type": "Method",
+            "relation": "EVALUATE_FOR",
+            "tail_id": "c",
+            "tail": "F1",
+            "tail_type": "Metric",
+            "score": 0.7,
+            "support": 1,
+            "docs": ["d3"],
+        },
+    ]
+    g = analytics.build_graph(rows)
+    hyps = analytics.candidate_links(g, 10)
+    pairs = {(h["a"], h["b"]) for h in hyps} | {(h["b"], h["a"]) for h in hyps}
+    assert ("HMM", "NER") in pairs  # HMM and NER share the neighbour F1
+    assert ("CRF", "NER") not in pairs  # already linked
+    assert all(h["status"] == "hypothesis" for h in hyps)
+
+
+def test_traversals_exclude_inferred_and_provenance_edges():
+    from scigraph.graph.queries import QUERIES
+
+    assert "INFERRED" not in path_query(3)
+    assert "USED_FOR|FEATURE_OF" in QUERIES["entity_neighbors"].cypher
+
+
 def test_rdf_export_sparql_and_shacl():
     g = triples_to_rdf(ROWS)
     rows = run_sparql(g, "methods_used_for_tasks")
@@ -133,4 +164,15 @@ def test_neo4j_ingest_query_review(sample_texts):
         assert verified
         paths = find_paths(store, triple.head_id, triple.tail_id, 2)
         assert paths and len(paths[0]["nodes"]) == 2
+
+        from scigraph.graph import reasoning
+
+        before = store.counts()["relations"]
+        reasoning.materialize(store, ("predicted", "verified"))
+        after = store.counts()
+        assert after["relations"] == before  # inferred edges are counted separately
+        assert all(
+            r["status"] != "inferred"
+            for r in store.export_triples(("predicted", "verified", "inferred"))
+        )
         store.clear()

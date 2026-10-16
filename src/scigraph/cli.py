@@ -78,7 +78,7 @@ def cmd_ingest(args) -> None:
 def _scierc_graph(split: str, data_dir: str, predictions: str | None) -> GraphBuilder:
     """Graph built from SciERC sentences, from gold annotations or from prediction files."""
     from scigraph.data.scierc import load_split, read_jsonl
-    from scigraph.pipeline.normalize import unescape_ptb
+    from scigraph.pipeline.normalize import detokenize, unescape_ptb
     from scigraph.schema import NO_RELATION
 
     sents = load_split(data_dir, split)
@@ -91,6 +91,7 @@ def _scierc_graph(split: str, data_dir: str, predictions: str | None) -> GraphBu
     builder = GraphBuilder()
     for doc_key, doc_sents in by_doc.items():
         packed = []
+        sent_texts: list[str] = []
         for s in doc_sents:
             if pred is None:
                 ents = [(e.start, e.end, e.label) for e in s.entities]
@@ -108,11 +109,16 @@ def _scierc_graph(split: str, data_dir: str, predictions: str | None) -> GraphBu
                 rels = [tuple(r) for r in row["relations"]]
             index = {(e[0], e[1]): k for k, e in enumerate(ents)}
             tokens = unescape_ptb(s.tokens)
+            sent_text, rel_offsets = detokenize(s.tokens)
+            base = sum(len(t) + 1 for t in sent_texts)  # offset in " ".join(sent_texts)
+            sent_texts.append(sent_text)
             packed.append(
                 {
                     "index": s.sent_id,
-                    "text": " ".join(tokens),
+                    "text": sent_text,
+                    "char_start": base,
                     "tokens": tokens,
+                    "token_offsets": [(base + a, base + b) for a, b in rel_offsets],
                     "entities": [
                         {"start": a, "end": b, "label": lab, "score": sc} for a, b, lab, sc in ents
                     ],
@@ -123,7 +129,7 @@ def _scierc_graph(split: str, data_dir: str, predictions: str | None) -> GraphBu
                     ],
                 }
             )
-        text = " ".join(" ".join(unescape_ptb(s.tokens)) for s in doc_sents)
+        text = " ".join(sent_texts)
         builder.add_document(
             f"scierc:{doc_key}", {"title": doc_key, "source": f"scierc-{split}"}, text, packed
         )

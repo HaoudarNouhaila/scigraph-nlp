@@ -14,6 +14,9 @@ from scigraph.graph.neo4j_store import REL_TYPES_NEO4J
 from scigraph.schema import ENTITY_TYPES
 
 STATUSES = ("predicted", "verified")
+# Relationship-type pattern restricting traversals to extracted/verified relation types,
+# so that :INFERRED edges and provenance edges (HAS_MENTION, REFERS_TO) are never used.
+REL_PATTERN = "|".join(REL_TYPES_NEO4J)
 
 
 class QueryValidationError(ValueError):
@@ -47,6 +50,9 @@ QUERIES: dict[str, NamedQuery] = {}
 
 
 def register(q: NamedQuery) -> None:
+    # "%s" in a query stands for the whitelisted relationship-type pattern.
+    if "%s" in q.cypher:
+        q = NamedQuery(q.name, q.description, q.cypher.replace("%s", REL_PATTERN), q.params)
     QUERIES[q.name] = q
 
 
@@ -74,7 +80,7 @@ register(
         "entity_neighbors",
         "Outgoing and incoming relations of one entity.",
         """
-    MATCH (e:Entity {id: $entity_id})-[r]-(n:Entity)
+    MATCH (e:Entity {id: $entity_id})-[r:%s]-(n:Entity)
     WHERE r.status IN $statuses AND ($relation IS NULL OR type(r) = $relation)
     RETURN type(r) AS relation, startNode(r) = e AS outgoing, n.id AS id, n.name AS name,
            n.type AS type, r.score AS score, r.support AS support, r.status AS status,
@@ -137,7 +143,7 @@ register(
         "top_entities",
         "Entities with the highest number of relations, optionally by type.",
         """
-    MATCH (e:Entity)-[r]-(:Entity)
+    MATCH (e:Entity)-[r:%s]-(:Entity)
     WHERE ($type IS NULL OR e.type = $type) AND r.status IN $statuses
     RETURN e.id AS id, e.name AS name, e.type AS type, count(r) AS degree
     ORDER BY degree DESC LIMIT $limit
@@ -165,7 +171,7 @@ register(
         "relation_statistics",
         "Number of relations per type and status.",
         """
-    MATCH (:Entity)-[r]->(:Entity)
+    MATCH (:Entity)-[r:%s]->(:Entity)
     RETURN type(r) AS relation, r.status AS status, count(*) AS count
     ORDER BY count DESC
     """,
@@ -178,13 +184,86 @@ register(
         "review_queue",
         "Predicted relations ordered by ascending confidence, for human review.",
         """
-    MATCH (h:Entity)-[r]->(t:Entity)
+    MATCH (h:Entity)-[r:%s]->(t:Entity)
     WHERE r.status = 'predicted' AND r.score <= $max_score
     RETURN r.id AS relation_id, h.name AS head, type(r) AS relation, t.name AS tail,
            r.score AS score, r.evidence_sentences[0] AS evidence
     ORDER BY r.score ASC LIMIT $limit
     """,
         {"max_score": Param(float, 1.0, min=0, max=1), "limit": Param(int, 50, min=1, max=500)},
+    )
+)
+
+
+register(
+    NamedQuery(
+        "relations_between",
+        "Direct relations between two entities, in either direction.",
+        """
+    MATCH (a:Entity {id: $source_id})-[r:%s]-(b:Entity {id: $target_id})
+    WHERE r.status IN $statuses
+    RETURN startNode(r).name AS head, type(r) AS relation, endNode(r).name AS tail,
+           r.score AS score, r.support AS support, r.status AS status, r.id AS relation_id
+    """,
+        {"source_id": Param(str, required=True), "target_id": Param(str, required=True)},
+    )
+)
+
+register(
+    NamedQuery(
+        "relation_evidence",
+        "Documents and sentences supporting one relation.",
+        """
+    MATCH (h:Entity)-[r {id: $relation_id}]->(t:Entity)
+    RETURN h.name AS head, type(r) AS relation, t.name AS tail, r.status AS status,
+           r.source AS source, r.model_version AS model_version, r.evidence_docs AS documents,
+           r.evidence_sentences AS sentences
+    """,
+        {"relation_id": Param(str, required=True)},
+    )
+)
+
+register(
+    NamedQuery(
+        "concepts_for_method",
+        "Entities related to a method, grouped by relation type.",
+        """
+    MATCH (m:Entity {type: 'Method'})-[r:%s]-(c:Entity)
+    WHERE toLower(m.name) CONTAINS toLower($method) AND r.status IN $statuses
+    RETURN m.name AS method, type(r) AS relation, startNode(r) = m AS outgoing,
+           c.name AS concept, c.type AS concept_type, r.support AS support
+    ORDER BY r.support DESC LIMIT $limit
+    """,
+        {"method": Param(str, required=True), "limit": Param(int, 50, min=1, max=500)},
+    )
+)
+
+register(
+    NamedQuery(
+        "frequent_pairs",
+        "Concept pairs whose relation is supported by the most documents.",
+        """
+    MATCH (h:Entity)-[r:%s]->(t:Entity)
+    WHERE r.status IN $statuses AND r.support >= $min_support
+    RETURN h.name AS head, h.type AS head_type, type(r) AS relation, t.name AS tail,
+           t.type AS tail_type, r.support AS support
+    ORDER BY r.support DESC, h.name LIMIT $limit
+    """,
+        {"min_support": Param(int, 1, min=1, max=1000), "limit": Param(int, 25, min=1, max=500)},
+    )
+)
+
+register(
+    NamedQuery(
+        "inferred_relations",
+        "Relations derived by explicit rules (kept separate from extracted relations).",
+        """
+    MATCH (h:Entity)-[r:INFERRED]->(t:Entity)
+    RETURN h.name AS head, r.relation AS relation, t.name AS tail, r.rule AS rule,
+           r.basis AS basis, r.score AS score, r.premises AS premises
+    ORDER BY r.score DESC LIMIT $limit
+    """,
+        {"limit": Param(int, 50, min=1, max=500)},
     )
 )
 
@@ -249,7 +328,7 @@ def path_query(max_hops: int) -> str:
         raise QueryValidationError("max_hops must be an integer between 1 and 5")
     return f"""
     MATCH (a:Entity {{id: $source_id}}), (b:Entity {{id: $target_id}})
-    MATCH p = allShortestPaths((a)-[*..{max_hops}]-(b))
+    MATCH p = allShortestPaths((a)-[:{REL_PATTERN}*..{max_hops}]-(b))
     WHERE all(r IN relationships(p) WHERE r.status IN $statuses)
     RETURN [n IN nodes(p) | {{id: n.id, name: n.name, type: n.type}}] AS nodes,
            [r IN relationships(p) | {{type: type(r), from: startNode(r).id, to: endNode(r).id,
@@ -283,7 +362,7 @@ def khop_neighbourhood(
     if not 1 <= int(limit) <= 1000:
         raise QueryValidationError("limit must be between 1 and 1000")
     cypher = f"""
-    MATCH p = (e:Entity {{id: $entity_id}})-[*1..{int(hops)}]-(:Entity)
+    MATCH p = (e:Entity {{id: $entity_id}})-[:{REL_PATTERN}*1..{int(hops)}]-(:Entity)
     WHERE all(r IN relationships(p) WHERE r.status IN $statuses)
     UNWIND relationships(p) AS r
     WITH DISTINCT r

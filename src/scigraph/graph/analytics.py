@@ -156,3 +156,39 @@ def shortest_paths(
     except nx.NetworkXNoPath:
         return []
     return out
+
+
+# Type pairs for which a missing link is a meaningful research hypothesis.
+HYPOTHESIS_TYPES = {("Method", "Task"), ("Method", "Material"), ("Metric", "Task")}
+
+
+def candidate_links(g: nx.MultiDiGraph, top_k: int = 20) -> list[dict]:
+    """Rank unlinked entity pairs by the Adamic-Adar index of their shared neighbours.
+
+    The output is a list of *hypotheses to validate*: two entities that share many
+    neighbours but have no extracted relation. It is not evidence that a relation
+    exists, and it is never written to the graph.
+    """
+    und = nx.Graph(g)
+    cands = []
+    for u in und:
+        for v in nx.non_neighbors(und, u):
+            tu, tv = g.nodes[u].get("type"), g.nodes[v].get("type")
+            typed = (tu, tv) in HYPOTHESIS_TYPES or (tv, tu) in HYPOTHESIS_TYPES
+            if u < v and typed and any(True for _ in nx.common_neighbors(und, u, v)):
+                cands.append((u, v))
+    scored = sorted(nx.adamic_adar_index(und, cands), key=lambda x: -x[2])[:top_k]
+    return [
+        {
+            "a": g.nodes[u].get("name"),
+            "a_type": g.nodes[u].get("type"),
+            "b": g.nodes[v].get("name"),
+            "b_type": g.nodes[v].get("type"),
+            "shared_neighbours": sorted(
+                g.nodes[n].get("name") for n in nx.common_neighbors(und, u, v)
+            ),
+            "adamic_adar": round(score, 4),
+            "status": "hypothesis",
+        }
+        for u, v, score in scored
+    ]

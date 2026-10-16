@@ -130,6 +130,13 @@ def test_review_and_analytics_and_export(client):
     assert ttl.status_code == 200 and "sg:usedFor" in ttl.text
 
 
+def test_hypotheses_are_labelled(client):
+    r = client.get("/graph/hypotheses", params={"top_k": 5})
+    assert r.status_code == 200
+    assert all(h["status"] == "hypothesis" for h in r.json()["hypotheses"])
+    assert client.get("/graph/hypotheses", params={"top_k": 0}).status_code == 422
+
+
 def test_queries_catalogue(client):
     names = {q["name"] for q in client.get("/graph/queries").json()}
     assert {"search_entities", "entity_neighbors", "methods_for_task"} <= names

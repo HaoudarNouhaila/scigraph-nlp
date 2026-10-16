@@ -8,12 +8,16 @@ entities.
 
 from __future__ import annotations
 
+import bisect
 import re
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from scigraph.pipeline.text import clean_text
+
 REFERENCES_HEADING = re.compile(r"^\s*(\d+\.?\s*)?(references|bibliography)\s*$", re.I)
+BLOCK_SEPARATOR = "\n\n"
 PAGE_NUMBER = re.compile(r"^\s*\d{1,4}\s*$")
 
 
@@ -50,8 +54,10 @@ def extract_pdf(source: str | Path | bytes, max_pages: int = 50) -> PdfDocument:
     repeated = {b for b, c in counts.items() if len(pages) > 2 and c >= len(pages) / 2}
 
     kept: list[str] = []
+    page_starts: list[tuple[int, int]] = []
+    offset = 0
     stop = False
-    for page in pages:
+    for page_no, page in enumerate(pages, start=1):
         for block in page:
             first_line = block.splitlines()[0] if block else ""
             if REFERENCES_HEADING.match(first_line):
@@ -59,11 +65,32 @@ def extract_pdf(source: str | Path | bytes, max_pages: int = 50) -> PdfDocument:
                 break
             if block in repeated or PAGE_NUMBER.match(block):
                 continue
-            kept.append(block)
+            # Blocks are cleaned here so that later cleaning does not shift offsets.
+            cleaned = clean_text(block)
+            if not cleaned:
+                continue
+            if not page_starts or page_starts[-1][1] != page_no:
+                page_starts.append((offset, page_no))
+            kept.append(cleaned)
+            offset += len(cleaned) + len(BLOCK_SEPARATOR)
         if stop:
             break
 
     title = (meta.get("title") or "").strip()
     if not title and kept:
-        title = kept[0].splitlines()[0][:200]
-    return PdfDocument(title=title, text="\n\n".join(kept), n_pages=n_pages, metadata=meta)
+        title = kept[0][:200]
+    return PdfDocument(
+        title=title,
+        text=BLOCK_SEPARATOR.join(kept),
+        n_pages=n_pages,
+        metadata=meta,
+        page_starts=page_starts,
+    )
+
+
+def page_of(offset: int, page_starts: list[tuple[int, int]]) -> int | None:
+    """Page number containing a character offset of :attr:`PdfDocument.text`."""
+    if not page_starts:
+        return None
+    i = bisect.bisect_right([o for o, _ in page_starts], offset) - 1
+    return page_starts[max(i, 0)][1]

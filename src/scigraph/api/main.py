@@ -197,6 +197,29 @@ def graph_analytics(top_k: int = Query(10, ge=1, le=100), store=Depends(get_stor
     }
 
 
+@app.post("/graph/infer")
+def graph_infer(include_predicted: bool = False, store=Depends(get_store)):
+    """Apply the rule set and store conclusions as separate :INFERRED edges."""
+    from scigraph.graph import reasoning
+
+    statuses = ("predicted", "verified") if include_predicted else ("verified",)
+    return {"rules": reasoning.materialize(store, statuses)}
+
+
+@app.get("/graph/inferred")
+def graph_inferred(limit: int = Query(50, ge=1, le=500), store=Depends(get_store)):
+    from scigraph.graph import reasoning
+
+    return {"relations": reasoning.list_inferred(store, limit)}
+
+
+@app.get("/graph/hypotheses")
+def graph_hypotheses(top_k: int = Query(20, ge=1, le=200), store=Depends(get_store)):
+    """Unlinked entity pairs ranked by shared neighbours. Hypotheses, not facts."""
+    g = analytics.build_graph(store.export_triples())
+    return {"hypotheses": analytics.candidate_links(g, top_k)}
+
+
 @app.get("/graph/stats")
 def graph_stats(store=Depends(get_store)):
     return store.counts()

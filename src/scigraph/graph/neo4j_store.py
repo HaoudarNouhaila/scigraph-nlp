@@ -282,8 +282,10 @@ class Neo4jStore:
             CALL () { MATCH (e:Entity) RETURN count(e) AS entities }
             CALL () { MATCH (d:Document) RETURN count(d) AS documents }
             CALL () { MATCH (m:Mention) RETURN count(m) AS mentions }
-            CALL () { MATCH (:Entity)-[r]->(:Entity) RETURN count(r) AS relations }
-            RETURN entities, documents, mentions, relations
+            CALL () { MATCH (:Entity)-[r]->(:Entity) WHERE r.status <> 'inferred'
+                     RETURN count(r) AS relations }
+            CALL () { MATCH (:Entity)-[r:INFERRED]->(:Entity) RETURN count(r) AS inferred }
+            RETURN entities, documents, mentions, relations, inferred
             """
         )
         return rows[0] if rows else {}
@@ -292,7 +294,7 @@ class Neo4jStore:
         return self.run_read(
             """
             MATCH (h:Entity)-[r]->(t:Entity)
-            WHERE r.status IN $status
+            WHERE r.status IN $status AND type(r) <> 'INFERRED'
             RETURN h.id AS head_id, h.name AS head, h.type AS head_type, type(r) AS relation,
                    t.id AS tail_id, t.name AS tail, t.type AS tail_type, r.score AS score,
                    r.support AS support, r.status AS status, r.id AS id, r.evidence_docs AS docs

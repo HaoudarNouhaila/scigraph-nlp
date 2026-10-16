@@ -18,6 +18,11 @@ def test_normalize_mention():
     assert singularize("analysis") == "analysis"
 
 
+def test_trailing_acronym_definition_shares_key():
+    assert normalize_mention("Conditional Random Fields (CRF)") == "conditional random field"
+    assert normalize_mention("accuracy (ACC) score") == "accuracy (acc) score"
+
+
 def test_acronyms():
     found = find_acronyms(
         "We train a conditional random field (CRF) and a hidden Markov model (HMM)."
@@ -114,13 +119,17 @@ def test_process_pdf(tmp_path):
     import fitz
 
     doc = fitz.open()
+    doc.new_page().insert_text((72, 72), "We use a neural network for machine translation.")
     page = doc.new_page()
-    page.insert_text((72, 72), "We use a neural network for machine translation.", fontsize=11)
+    page.insert_text((72, 72), "A CRF is used for named entity recognition.", fontsize=11)
     page.insert_text((72, 120), "References", fontsize=11)
     page.insert_text((72, 140), "Smith, J. A paper about parsing.", fontsize=11)
     pdf_bytes = doc.tobytes()
     doc.close()
     result = process_pdf(pdf_bytes, RuleExtractor())
-    assert result["n_pages"] == 1
+    assert result["n_pages"] == 2
     joined = " ".join(s["text"] for s in result["sentences"])
     assert "machine translation" in joined and "Smith" not in joined
+    assert [s["page"] for s in result["sentences"]] == [1, 2]
+    pages = {m.page for m in result["graph"].mentions.values()}
+    assert pages == {1, 2}
