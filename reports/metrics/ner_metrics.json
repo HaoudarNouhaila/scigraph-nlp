@@ -1,0 +1,142 @@
+{
+  "dev": {
+    "micro": {
+      "precision": 69.99,
+      "recall": 71.89,
+      "f1": 70.92,
+      "tp": 583,
+      "n_pred": 833,
+      "n_gold": 811
+    },
+    "macro_f1": 70.17,
+    "span_only": {
+      "precision": 78.51,
+      "recall": 80.64,
+      "f1": 79.56,
+      "tp": 654,
+      "n_pred": 833,
+      "n_gold": 811
+    },
+    "per_type": {
+      "Generic": {
+        "precision": 81.29,
+        "recall": 76.87,
+        "f1": 79.02,
+        "tp": 113,
+        "n_pred": 139,
+        "n_gold": 147
+      },
+      "Material": {
+        "precision": 64.79,
+        "recall": 64.79,
+        "f1": 64.79,
+        "tp": 46,
+        "n_pred": 71,
+        "n_gold": 71
+      },
+      "Method": {
+        "precision": 76.82,
+        "recall": 78.24,
+        "f1": 77.52,
+        "tp": 169,
+        "n_pred": 220,
+        "n_gold": 216
+      },
+      "Metric": {
+        "precision": 79.31,
+        "recall": 60.53,
+        "f1": 68.66,
+        "tp": 23,
+        "n_pred": 29,
+        "n_gold": 38
+      },
+      "OtherScientificTerm": {
+        "precision": 58.3,
+        "recall": 71.23,
+        "f1": 64.12,
+        "tp": 151,
+        "n_pred": 259,
+        "n_gold": 212
+      },
+      "Task": {
+        "precision": 70.43,
+        "recall": 63.78,
+        "f1": 66.94,
+        "tp": 81,
+        "n_pred": 115,
+        "n_gold": 127
+      }
+    },
+    "predicted_overlapping_pairs": 30
+  },
+  "test": {
+    "micro": {
+      "precision": 67.02,
+      "recall": 67.06,
+      "f1": 67.04,
+      "tp": 1130,
+      "n_pred": 1686,
+      "n_gold": 1685
+    },
+    "macro_f1": 66.43,
+    "span_only": {
+      "precision": 79.12,
+      "recall": 79.17,
+      "f1": 79.15,
+      "tp": 1334,
+      "n_pred": 1686,
+      "n_gold": 1685
+    },
+    "per_type": {
+      "Generic": {
+        "precision": 70.12,
+        "recall": 73.03,
+        "f1": 71.54,
+        "tp": 176,
+        "n_pred": 251,
+        "n_gold": 241
+      },
+      "Material": {
+        "precision": 63.33,
+        "recall": 60.13,
+        "f1": 61.69,
+        "tp": 95,
+        "n_pred": 150,
+        "n_gold": 158
+      },
+      "Method": {
+        "precision": 77.45,
+        "recall": 73.49,
+        "f1": 75.42,
+        "tp": 316,
+        "n_pred": 408,
+        "n_gold": 430
+      },
+      "Metric": {
+        "precision": 59.52,
+        "recall": 70.42,
+        "f1": 64.52,
+        "tp": 50,
+        "n_pred": 84,
+        "n_gold": 71
+      },
+      "OtherScientificTerm": {
+        "precision": 61.47,
+        "recall": 62.64,
+        "f1": 62.05,
+        "tp": 327,
+        "n_pred": 532,
+        "n_gold": 522
+      },
+      "Task": {
+        "precision": 63.6,
+        "recall": 63.12,
+        "f1": 63.36,
+        "tp": 166,
+        "n_pred": 261,
+        "n_gold": 263
+      }
+    },
+    "predicted_overlapping_pairs": 81
+  }
+}

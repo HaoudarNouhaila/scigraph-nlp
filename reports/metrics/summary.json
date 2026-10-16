@@ -1,0 +1,53 @@
+{
+  "rows": [
+    {
+      "system": "Rule baseline (spaCy)",
+      "task": "NER",
+      "setting": "-",
+      "precision": 21.03,
+      "recall": 37.45,
+      "f1": 26.94,
+      "macro_f1": 27.41
+    },
+    {
+      "system": "Rule baseline (spaCy)",
+      "task": "RE",
+      "setting": "A: gold entities",
+      "precision": 67.65,
+      "recall": 16.53,
+      "f1": 26.57,
+      "macro_f1": 18.5
+    },
+    {
+      "system": "Rule baseline (spaCy)",
+      "task": "RE",
+      "setting": "B: predicted entities (boundaries)",
+      "precision": 12.22,
+      "recall": 8.32,
+      "f1": 9.9,
+      "macro_f1": 6.79
+    },
+    {
+      "system": "Rule baseline (spaCy)",
+      "task": "RE",
+      "setting": "B: predicted entities (strict)",
+      "precision": 6.18,
+      "recall": 4.21,
+      "f1": 5.01,
+      "macro_f1": 3.96
+    },
+    {
+      "system": "SciBERT span NER",
+      "task": "NER",
+      "setting": "-",
+      "precision": 67.02,
+      "recall": 67.06,
+      "f1": 67.04,
+      "macro_f1": 66.43
+    }
+  ],
+  "notes": [
+    "RE metrics not found at outputs\\__missing__\\metrics.json",
+    "All scores are micro-averaged on the official SciERC test split (551 sentences)."
+  ]
+}

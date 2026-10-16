@@ -33,6 +33,12 @@ def read_log(path: Path) -> list[dict]:
 def plot_curves(log: list[dict], title: str, out: Path) -> None:
     steps = [r for r in log if r["event"] == "step"]
     dev = [r for r in log if r["event"] == "dev"]
+    # Runs logged before the averaging fix divided the first post-epoch window by the full
+    # logging interval; those points (window crossing an epoch end) are left out.
+    if len(steps) > 1:
+        interval = min(b["step"] - a["step"] for a, b in zip(steps, steps[1:], strict=False))
+        ends = [d["step"] for d in dev]
+        steps = [r for r in steps if not any(r["step"] - interval < e < r["step"] for e in ends)]
     if not steps and not dev:
         return
     fig, ax1 = plt.subplots(figsize=(7, 3.5))
@@ -92,6 +98,35 @@ def plot_confusion(conf: dict, out: Path) -> None:
     plt.close(fig)
 
 
+def recompute_ner(run_dir: Path, logged: dict) -> dict:
+    """Recompute NER scores from the saved predictions with the current metric code.
+
+    Adds macro-F1 and checks that the micro scores equal those logged at training time.
+    """
+    from scigraph.data.scierc import load_split, read_jsonl
+    from scigraph.evaluation.metrics import entity_scores
+    from scigraph.schema import Span
+
+    out = {}
+    for split in ("dev", "test"):
+        path = run_dir / f"predictions_{split}.jsonl"
+        if not path.exists():
+            out[split] = logged[split]
+            continue
+        sents = load_split("data/processed", split)
+        rows = {(r["doc_key"], r["sent_id"]): r for r in read_jsonl(path)}
+        pred = [
+            [Span(a, b, lab) for a, b, lab, *_ in rows[(s.doc_key, s.sent_id)]["entities"]]
+            for s in sents
+        ]
+        scores = entity_scores([s.entities for s in sents], pred)
+        if scores["micro"]["f1"] != logged[split]["micro"]["f1"]:
+            raise SystemExit(f"NER {split} F1 mismatch: {scores['micro']} vs logged")
+        scores["predicted_overlapping_pairs"] = logged[split].get("predicted_overlapping_pairs")
+        out[split] = scores
+    return out
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--ner", type=Path, default=Path("outputs/ner"))
@@ -106,49 +141,46 @@ def main() -> None:
         if (METRICS / "baseline.json").exists()
         else None
     )
+
+    def row(system: str, task: str, setting: str, block: dict) -> dict:
+        """One summary row from a score block with 'micro' and 'macro_f1' entries."""
+        return {
+            "system": system,
+            "task": task,
+            "setting": setting,
+            **{k: block["micro"][k] for k in ("precision", "recall", "f1")},
+            "macro_f1": block.get("macro_f1"),
+        }
+
     if base:
         t = base["test"]
         rows += [
-            {
-                "system": "Rule baseline (spaCy)",
-                "task": "NER",
-                "setting": "-",
-                "precision": t["ner"]["micro"]["precision"],
-                "recall": t["ner"]["micro"]["recall"],
-                "f1": t["ner"]["micro"]["f1"],
-            },
-            {
-                "system": "Rule baseline (spaCy)",
-                "task": "RE",
-                "setting": "A: gold entities",
-                **{
-                    k: t["relations_gold_entities"]["boundaries"]["micro"][k]
-                    for k in ("precision", "recall", "f1")
-                },
-            },
-            {
-                "system": "Rule baseline (spaCy)",
-                "task": "RE",
-                "setting": "B: predicted entities",
-                **{
-                    k: t["relations_predicted_entities"]["boundaries"]["micro"][k]
-                    for k in ("precision", "recall", "f1")
-                },
-            },
+            row("Rule baseline (spaCy)", "NER", "-", t["ner"]),
+            row(
+                "Rule baseline (spaCy)",
+                "RE",
+                "A: gold entities",
+                t["relations_gold_entities"]["boundaries"],
+            ),
+            row(
+                "Rule baseline (spaCy)",
+                "RE",
+                "B: predicted entities (boundaries)",
+                t["relations_predicted_entities"]["boundaries"],
+            ),
+            row(
+                "Rule baseline (spaCy)",
+                "RE",
+                "B: predicted entities (strict)",
+                t["relations_predicted_entities"]["strict"],
+            ),
         ]
 
     ner_m = args.ner / "metrics.json"
     if ner_m.exists():
-        shutil.copy(ner_m, METRICS / "ner_metrics.json")
-        ner = json.loads(ner_m.read_text())
-        rows.append(
-            {
-                "system": "SciBERT span NER",
-                "task": "NER",
-                "setting": "-",
-                **{k: ner["test"]["micro"][k] for k in ("precision", "recall", "f1")},
-            }
-        )
+        ner = recompute_ner(args.ner, json.loads(ner_m.read_text()))
+        (METRICS / "ner_metrics.json").write_text(json.dumps(ner, indent=2), encoding="utf-8")
+        rows.append(row("SciBERT span NER", "NER", "-", ner["test"]))
         plot_per_type(
             ner["test"]["per_type"], "NER F1 per entity type (test)", FIGURES / "ner_per_type.png"
         )
@@ -164,32 +196,19 @@ def main() -> None:
         shutil.copy(re_m, METRICS / "re_metrics.json")
         rel = json.loads(re_m.read_text())
         a = rel["experiment_a_gold_entities"]["test"]
-        rows.append(
-            {
-                "system": "SciBERT marker RE",
-                "task": "RE",
-                "setting": "A: gold entities",
-                **{k: a["boundaries"]["micro"][k] for k in ("precision", "recall", "f1")},
-            }
-        )
+        rows.append(row("SciBERT marker RE", "RE", "A: gold entities", a["boundaries"]))
         b = rel["experiment_b_predicted_entities"]
         if isinstance(b, dict):
-            bt = b["test"]
             rows.append(
-                {
-                    "system": "SciBERT NER + RE",
-                    "task": "RE",
-                    "setting": "B: predicted entities (boundaries)",
-                    **{k: bt["boundaries"]["micro"][k] for k in ("precision", "recall", "f1")},
-                }
+                row(
+                    "SciBERT NER + RE",
+                    "RE",
+                    "B: predicted entities (boundaries)",
+                    b["test"]["boundaries"],
+                )
             )
             rows.append(
-                {
-                    "system": "SciBERT NER + RE",
-                    "task": "RE",
-                    "setting": "B: predicted entities (strict)",
-                    **{k: bt["strict"]["micro"][k] for k in ("precision", "recall", "f1")},
-                }
+                row("SciBERT NER + RE", "RE", "B: predicted entities (strict)", b["test"]["strict"])
             )
         plot_per_type(
             a["boundaries"]["per_type"],
@@ -205,14 +224,14 @@ def main() -> None:
         "Relation classifier training",
         FIGURES / "re_training.png",
     )
-
     notes.append("All scores are micro-averaged on the official SciERC test split (551 sentences).")
     summary = {"rows": rows, "notes": notes}
     (METRICS / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     for r in rows:
         print(
             f"{r['system']:28s} {r['task']:4s} {r['setting']:38s} "
-            f"P {r['precision']:6.2f} R {r['recall']:6.2f} F1 {r['f1']:6.2f}"
+            f"P {r['precision']:6.2f} R {r['recall']:6.2f} F1 {r['f1']:6.2f} "
+            f"macro-F1 {r['macro_f1'] if r['macro_f1'] is not None else '-'}"
         )
     for n in notes:
         print("note:", n)

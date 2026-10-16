@@ -9,6 +9,7 @@
         "n_pred": 1464,
         "n_gold": 811
       },
+      "macro_f1": 26.64,
       "span_only": {
         "precision": 29.1,
         "recall": 52.53,
@@ -78,6 +79,7 @@
           "n_pred": 91,
           "n_gold": 455
         },
+        "macro_f1": 16.34,
         "per_type": {
           "COMPARE": {
             "precision": 100.0,
@@ -146,6 +148,7 @@
           "n_pred": 91,
           "n_gold": 455
         },
+        "macro_f1": 16.34,
         "per_type": {
           "COMPARE": {
             "precision": 100.0,
@@ -216,6 +219,7 @@
           "n_pred": 295,
           "n_gold": 455
         },
+        "macro_f1": 3.23,
         "per_type": {
           "COMPARE": {
             "precision": 0.0,
@@ -284,6 +288,7 @@
           "n_pred": 295,
           "n_gold": 455
         },
+        "macro_f1": 2.74,
         "per_type": {
           "COMPARE": {
             "precision": 0.0,
@@ -355,6 +360,7 @@
         "n_pred": 3000,
         "n_gold": 1685
       },
+      "macro_f1": 27.41,
       "span_only": {
         "precision": 33.63,
         "recall": 59.88,
@@ -424,6 +430,7 @@
           "n_pred": 238,
           "n_gold": 974
         },
+        "macro_f1": 18.5,
         "per_type": {
           "COMPARE": {
             "precision": 100.0,
@@ -492,6 +499,7 @@
           "n_pred": 238,
           "n_gold": 974
         },
+        "macro_f1": 18.5,
         "per_type": {
           "COMPARE": {
             "precision": 100.0,
@@ -562,6 +570,7 @@
           "n_pred": 663,
           "n_gold": 974
         },
+        "macro_f1": 6.79,
         "per_type": {
           "COMPARE": {
             "precision": 0.0,
@@ -630,6 +639,7 @@
           "n_pred": 663,
           "n_gold": 974
         },
+        "macro_f1": 3.96,
         "per_type": {
           "COMPARE": {
             "precision": 0.0,

@@ -177,7 +177,7 @@ def train(params: dict) -> dict:
         order = list(range(len(train_feats)))
         random.Random(params["seed"] + epoch).shuffle(order)
         skip = global_step - epoch * steps_per_epoch  # resume inside an epoch
-        t0, running = time.time(), 0.0
+        t0, running, n_running = time.time(), 0.0, 0
         for b_idx in range(steps_per_epoch):
             if b_idx < skip:
                 continue
@@ -201,15 +201,16 @@ def train(params: dict) -> dict:
             )
             global_step += 1
             running += loss.item()
+            n_running += 1
             if global_step % 50 == 0:
                 logger.log(
                     event="step",
                     epoch=epoch,
                     step=global_step,
-                    loss=round(running / 50, 5),
+                    loss=round(running / n_running, 5),
                     elapsed=round(time.time() - t0, 1),
                 )
-                running = 0.0
+                running, n_running = 0.0, 0
             if params["save_every"] and global_step % params["save_every"] == 0 and boundary:
                 ckpt.save(
                     model=model,
