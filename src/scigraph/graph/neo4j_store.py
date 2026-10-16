@@ -282,7 +282,7 @@ class Neo4jStore:
             WHERE r.status IN $status
             RETURN h.id AS head_id, h.name AS head, h.type AS head_type, type(r) AS relation,
                    t.id AS tail_id, t.name AS tail, t.type AS tail_type, r.score AS score,
-                   r.support AS support, r.status AS status, r.id AS id
+                   r.support AS support, r.status AS status, r.id AS id, r.evidence_docs AS docs
             """,
             status=list(status),
         )

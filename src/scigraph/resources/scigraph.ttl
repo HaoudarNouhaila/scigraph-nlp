@@ -1,0 +1,101 @@
+@prefix sg:   <https://w3id.org/scigraph-nlp/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+
+# Light-weight ontology for the SciERC annotation scheme. It is intentionally shallow:
+# classes mirror the six entity types, object properties mirror the seven relation
+# types, and an Assertion class reifies extracted facts so that confidence, status
+# and provenance can be attached to them.
+
+<https://w3id.org/scigraph-nlp/ontology>
+    a owl:Ontology ;
+    rdfs:label "SciGraph-NLP ontology" ;
+    rdfs:comment "Entity and relation types of the SciERC scheme (Luan et al., 2018), with provenance for extracted assertions." ;
+    owl:versionInfo "0.1.0" .
+
+# --- Classes ---------------------------------------------------------------------
+
+sg:ScientificEntity a owl:Class ;
+    rdfs:label "Scientific entity" .
+
+sg:Task a owl:Class ; rdfs:subClassOf sg:ScientificEntity ;
+    rdfs:label "Task" ;
+    rdfs:comment "A problem to solve or a system to construct (e.g. machine translation)." .
+
+sg:Method a owl:Class ; rdfs:subClassOf sg:ScientificEntity ;
+    rdfs:label "Method" ;
+    rdfs:comment "A method, model, system, tool or algorithm." .
+
+sg:Metric a owl:Class ; rdfs:subClassOf sg:ScientificEntity ;
+    rdfs:label "Metric" ;
+    rdfs:comment "A measure used to evaluate a system (e.g. F1, BLEU)." .
+
+sg:Material a owl:Class ; rdfs:subClassOf sg:ScientificEntity ;
+    rdfs:label "Material" ;
+    rdfs:comment "Data, datasets, corpora or knowledge resources." .
+
+sg:OtherScientificTerm a owl:Class ; rdfs:subClassOf sg:ScientificEntity ;
+    rdfs:label "Other scientific term" ;
+    rdfs:comment "A scientific term that does not fall into the other categories." .
+
+sg:Generic a owl:Class ; rdfs:subClassOf sg:ScientificEntity ;
+    rdfs:label "Generic" ;
+    rdfs:comment "A general reference such as 'this approach' whose meaning depends on context." .
+
+sg:Task owl:disjointWith sg:Method, sg:Metric, sg:Material .
+sg:Method owl:disjointWith sg:Metric, sg:Material .
+sg:Metric owl:disjointWith sg:Material .
+
+sg:Document a owl:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:label "Document" .
+
+sg:Assertion a owl:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:label "Assertion" ;
+    rdfs:comment "A reified relation between two scientific entities, with confidence and provenance." .
+
+# --- Object properties (relation types) -------------------------------------------
+
+sg:scientificRelation a owl:ObjectProperty ;
+    rdfs:label "scientific relation" ;
+    rdfs:domain sg:ScientificEntity ; rdfs:range sg:ScientificEntity .
+
+sg:usedFor a owl:ObjectProperty ; rdfs:subPropertyOf sg:scientificRelation ;
+    rdfs:label "USED-FOR" ;
+    rdfs:comment "B is used for A: the head is used for, models, or is exploited by the tail." .
+
+sg:featureOf a owl:ObjectProperty ; rdfs:subPropertyOf sg:scientificRelation ;
+    rdfs:label "FEATURE-OF" .
+
+sg:hyponymOf a owl:ObjectProperty ; rdfs:subPropertyOf sg:scientificRelation ;
+    rdfs:label "HYPONYM-OF" .
+
+sg:partOf a owl:ObjectProperty ; rdfs:subPropertyOf sg:scientificRelation ;
+    rdfs:label "PART-OF" .
+
+sg:compare a owl:ObjectProperty, owl:SymmetricProperty ; rdfs:subPropertyOf sg:scientificRelation ;
+    rdfs:label "COMPARE" .
+
+sg:conjunction a owl:ObjectProperty, owl:SymmetricProperty ; rdfs:subPropertyOf sg:scientificRelation ;
+    rdfs:label "CONJUNCTION" .
+
+sg:evaluateFor a owl:ObjectProperty ; rdfs:subPropertyOf sg:scientificRelation ;
+    rdfs:label "EVALUATE-FOR" .
+
+# Reification of assertions
+sg:subject a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain sg:Assertion ; rdfs:range sg:ScientificEntity .
+sg:object a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain sg:Assertion ; rdfs:range sg:ScientificEntity .
+sg:predicate a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain sg:Assertion .
+sg:mentionedIn a owl:ObjectProperty ; rdfs:range sg:Document .
+
+# --- Datatype properties -----------------------------------------------------------
+
+sg:confidence a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:decimal .
+sg:support a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer .
+sg:status a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:comment "'predicted' for model output, 'verified' after human review or from gold annotations." .
+sg:evidenceSentence a owl:DatatypeProperty ; rdfs:range xsd:string .
+sg:normalizedKey a owl:DatatypeProperty ; rdfs:range xsd:string .

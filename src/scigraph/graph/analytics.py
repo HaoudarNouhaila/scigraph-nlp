@@ -31,6 +31,7 @@ def triples_from_kg(kg: KnowledgeGraph, status: str = "predicted") -> list[dict]
                 "score": t.score,
                 "support": t.support,
                 "status": status,
+                "docs": sorted({ev.doc_id for ev in t.evidence}),
             }
         )
     return rows

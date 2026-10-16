@@ -1,0 +1,40 @@
+@prefix sg:   <https://w3id.org/scigraph-nlp/ontology#> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+
+# Optional SHACL shapes checking the structural integrity of an exported graph.
+
+sg:EntityShape a sh:NodeShape ;
+    sh:targetClass sg:Task, sg:Method, sg:Metric, sg:Material, sg:OtherScientificTerm, sg:Generic ;
+    sh:property [ sh:path rdfs:label ; sh:minCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path sg:normalizedKey ; sh:maxCount 1 ; sh:datatype xsd:string ] .
+
+sg:AssertionShape a sh:NodeShape ;
+    sh:targetClass sg:Assertion ;
+    sh:property [ sh:path sg:subject ; sh:minCount 1 ; sh:maxCount 1 ; sh:class sg:ScientificEntity ] ;
+    sh:property [ sh:path sg:object ; sh:minCount 1 ; sh:maxCount 1 ; sh:class sg:ScientificEntity ] ;
+    sh:property [ sh:path sg:predicate ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( sg:usedFor sg:featureOf sg:hyponymOf sg:partOf sg:compare sg:conjunction sg:evaluateFor ) ] ;
+    sh:property [ sh:path sg:confidence ; sh:maxCount 1 ; sh:datatype xsd:decimal ;
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path sg:status ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "predicted" "verified" "rejected" ) ] ;
+    sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ; sh:class sg:Document ] .
+
+# EVALUATE-FOR should have a Metric or Material as subject (annotation guideline).
+sg:EvaluateForShape a sh:NodeShape ;
+    sh:targetClass sg:Assertion ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:severity sh:Warning ;
+        sh:message "EVALUATE-FOR assertion whose subject is neither a Metric nor a Material" ;
+        sh:select """
+            PREFIX sg: <https://w3id.org/scigraph-nlp/ontology#>
+            SELECT $this WHERE {
+                $this sg:predicate sg:evaluateFor ; sg:subject ?s .
+                FILTER NOT EXISTS { ?s a sg:Metric }
+                FILTER NOT EXISTS { ?s a sg:Material }
+            }
+        """ ;
+    ] .
