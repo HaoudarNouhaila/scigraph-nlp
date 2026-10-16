@@ -14,16 +14,16 @@ dist/
 data/raw/
 data/processed/
 data/interim/
-outputs/
-checkpoints/
-models/
+/outputs/
+/checkpoints/
+/models/
 *.pt
 *.bin
 *.safetensors
 kaggle_outputs/
 
 # Neo4j local install and data
-neo4j/
+/neo4j/
 
 # Environment
 .env
