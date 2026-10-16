@@ -1,4 +1,4 @@
-"""Micro-averaged precision, recall and F1 for entities and relations.
+"""Precision, recall and F1 (micro and macro) for entities and relations.
 
 Entity matching is exact: same sentence, same boundaries, same type.
 
@@ -9,6 +9,9 @@ Two relation criteria are reported, following Taillé et al. (2020):
 
 Directional relations must match in direction. COMPARE and CONJUNCTION are symmetric
 and are matched irrespective of argument order.
+
+Micro scores pool all decisions; macro F1 is the unweighted mean of per-class F1 over the
+classes present in the gold annotations, so rare classes weigh as much as frequent ones.
 """
 
 from __future__ import annotations
@@ -33,6 +36,11 @@ def prf(tp: int, n_pred: int, n_gold: int) -> dict[str, float]:
     }
 
 
+def macro_f1(per_type: dict[str, dict]) -> float:
+    classes = [v for v in per_type.values() if v["n_gold"] > 0]
+    return round(sum(v["f1"] for v in classes) / len(classes), 2) if classes else 0.0
+
+
 def entity_scores(gold: list[list[Span]], pred: list[list[Span]]) -> dict:
     tp = n_pred = n_gold = 0
     per_type: dict[str, Counter] = {}
@@ -49,10 +57,12 @@ def entity_scores(gold: list[list[Span]], pred: list[list[Span]]) -> dict:
         len({(s.start, s.end) for s in g} & {(s.start, s.end) for s in p})
         for g, p in zip(gold, pred, strict=True)
     )
+    per = {k: prf(v["tp"], v["pred"], v["gold"]) for k, v in sorted(per_type.items())}
     return {
         "micro": prf(tp, n_pred, n_gold),
+        "macro_f1": macro_f1(per),
         "span_only": prf(untyped_tp, n_pred, n_gold),
-        "per_type": {k: prf(v["tp"], v["pred"], v["gold"]) for k, v in sorted(per_type.items())},
+        "per_type": per,
     }
 
 
@@ -79,12 +89,8 @@ def relation_scores(gold: Iterable[list[Relation]], pred: Iterable[list[Relation
             for keys, bucket in ((g, "gold"), (p, "pred"), (g & p, "tp")):
                 for k in keys:
                     per_type.setdefault(k[2], Counter())[bucket] += 1
-        out[name] = {
-            "micro": prf(tp, n_pred, n_gold),
-            "per_type": {
-                k: prf(v["tp"], v["pred"], v["gold"]) for k, v in sorted(per_type.items())
-            },
-        }
+        per = {k: prf(v["tp"], v["pred"], v["gold"]) for k, v in sorted(per_type.items())}
+        out[name] = {"micro": prf(tp, n_pred, n_gold), "macro_f1": macro_f1(per), "per_type": per}
     return out
 
 

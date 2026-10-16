@@ -159,15 +159,28 @@ def process_text(
     source: str = "text",
     doc_id: str | None = None,
     builder: GraphBuilder | None = None,
+    page_starts: list[tuple[int, int]] | None = None,
 ) -> dict:
     """Run the full pipeline on one document and return sentences, triples and graph."""
     t0 = time.time()
     clean = clean_text(text)
     sentences = split_sentences(clean)
     extracted = extractor.extract(sentences)
+    if page_starts:
+        from scigraph.pipeline.pdf import page_of
+
+        for sent in extracted:
+            sent["page"] = page_of(sent["char_start"], page_starts)
     doc_id = doc_id or doc_id_for(clean, source)
     builder = builder or GraphBuilder()
-    builder.add_document(doc_id, {"title": title, "source": source}, clean, extracted)
+    version = getattr(extractor, "version", None)
+    meta = {
+        "title": title,
+        "source": source,
+        "extractor": extractor.name,
+        "model_version": ",".join(f"{k}:{v}" for k, v in version.items()) if version else "",
+    }
+    builder.add_document(doc_id, meta, clean, extracted)
     kg = builder.finalize()
     return {
         "doc_id": doc_id,
@@ -186,7 +199,14 @@ def process_pdf(
     from scigraph.pipeline.pdf import extract_pdf
 
     pdf = extract_pdf(path_or_bytes)
-    result = process_text(pdf.text, extractor, title=pdf.title, source=source, builder=builder)
+    result = process_text(
+        pdf.text,
+        extractor,
+        title=pdf.title,
+        source=source,
+        builder=builder,
+        page_starts=pdf.page_starts,
+    )
     result["n_pages"] = pdf.n_pages
     return result
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 REFERENCES_HEADING = re.compile(r"^\s*(\d+\.?\s*)?(references|bibliography)\s*$", re.I)
@@ -23,6 +23,8 @@ class PdfDocument:
     text: str
     n_pages: int
     metadata: dict
+    # (character offset in `text`, 1-based page number) for the first block of each page.
+    page_starts: list[tuple[int, int]] = field(default_factory=list)
 
 
 def _blocks(page) -> list[str]:

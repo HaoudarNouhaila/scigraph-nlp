@@ -7,8 +7,9 @@ Deduplication rules (deliberately stricter than "same string, same node"):
    "parsing" as a Method stay separate nodes.
 2. An acronym defined in a document ("conditional random field (CRF)") is resolved to
    its long form inside that document only; the acronym is stored as an alias.
-3. ``Generic`` mentions ("this approach", "it") and bare head nouns ("method",
-   "model", "system") are only meaningful in context. They are scoped to their document
+3. ``Generic`` mentions ("this approach", "it") only make sense through coreference,
+   which this pipeline does not resolve, so each Generic mention is its own node. Bare
+   head nouns of other types ("method", "model", "system") are scoped to their document
    and never merged across documents.
 4. Near-duplicates (high token overlap, same type) are *not* merged; they are reported
    as ``candidate_duplicates`` for human review.
@@ -49,6 +50,7 @@ class Mention:
     type: str
     score: float
     entity_id: str = ""
+    page: int | None = None
 
 
 @dataclass
@@ -72,6 +74,7 @@ class Evidence:
     head_text: str
     tail_text: str
     score: float
+    page: int | None = None
 
 
 @dataclass
@@ -106,8 +109,10 @@ class KnowledgeGraph:
         }
 
 
-def entity_scope(doc_id: str, etype: str, key: str) -> str:
-    if etype == "Generic" or key in CONTEXT_DEPENDENT_KEYS or len(key) < 2:
+def entity_scope(doc_id: str, etype: str, key: str, mention_id: str = "") -> str:
+    if etype == "Generic":
+        return mention_id or doc_id
+    if key in CONTEXT_DEPENDENT_KEYS or len(key) < 2:
         return doc_id
     return "global"
 
@@ -166,13 +171,14 @@ class GraphBuilder:
             text,
             ent["label"],
             float(ent.get("score", 1.0)),
+            page=sent.get("page"),
         )
         key = normalize_mention(text)
         alias = None
         surface = text.strip()
         if is_acronym(surface) and surface in acr_keys:
             alias, key = surface, acr_keys[surface]
-        scope = entity_scope(doc_id, ent["label"], key)
+        scope = entity_scope(doc_id, ent["label"], key, mid)
         eid = f"e:{_hash(scope, ent['label'], key)}"
         entity = self.kg.entities.get(eid)
         if entity is None:
@@ -202,7 +208,15 @@ class GraphBuilder:
             self.kg.triples[tid] = triple
         triple.score = max(triple.score, float(score))
         triple.evidence.append(
-            Evidence(doc_id, sent["index"], sent["text"], h.text, t.text, float(score))
+            Evidence(
+                doc_id,
+                sent["index"],
+                sent["text"],
+                h.text,
+                t.text,
+                float(score),
+                page=sent.get("page"),
+            )
         )
 
     def finalize(self, near_duplicate_threshold: float = 0.75) -> KnowledgeGraph:

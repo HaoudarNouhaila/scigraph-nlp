@@ -112,9 +112,11 @@ def compute_statistics(docs: list[dict]) -> dict:
     reversed_pairs = 0
     self_relations = 0
     n_tokens = 0
+    candidate_pairs = 0
     n_coref_clusters = sum(len(d.get("clusters", [])) for d in docs)
     for s in sents:
         n_tokens += len(s.tokens)
+        candidate_pairs += len(s.entities) * (len(s.entities) - 1)
         for e in s.entities:
             ent_counts[e.label] += 1
             span_lengths[e.length] += 1
@@ -142,6 +144,15 @@ def compute_statistics(docs: list[dict]) -> dict:
         "entities": total_ents,
         "relations": sum(rel_counts.values()),
         "coreference_clusters": n_coref_clusters,
+        "mean_sentence_length": round(n_tokens / len(sents), 2) if sents else 0,
+        "max_sentence_length": max((len(s.tokens) for s in sents), default=0),
+        "sentences_per_document": round(len(sents) / len(docs), 2) if docs else 0,
+        # Ordered pairs of distinct gold entities in the same sentence: the candidate set
+        # of the relation classifier in Experiment A.
+        "candidate_entity_pairs": candidate_pairs,
+        "positive_pair_ratio_pct": round(100 * sum(rel_counts.values()) / candidate_pairs, 2)
+        if candidate_pairs
+        else 0,
         "entity_types": dict(sorted(ent_counts.items())),
         "relation_types": dict(sorted(rel_counts.items())),
         "max_entity_length": max_len,

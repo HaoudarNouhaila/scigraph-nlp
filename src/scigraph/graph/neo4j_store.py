@@ -136,6 +136,7 @@ class Neo4jStore:
         status: str = "predicted",
         source: str = "scigraph-pipeline",
         batch_size: int = 500,
+        model_version: str = "",
     ) -> dict[str, int]:
         if status not in ("predicted", "verified"):
             raise ValueError("status must be 'predicted' or 'verified'")
@@ -144,10 +145,17 @@ class Neo4jStore:
             """
             UNWIND $rows AS row
             MERGE (d:Document {id: row.id})
-            SET d.title = row.title, d.source = row.source
+            SET d.title = row.title, d.source = row.source, d.extractor = row.extractor,
+                d.model_version = row.model_version
             """,
             [
-                {"id": d["id"], "title": d.get("title", ""), "source": d.get("source", "")}
+                {
+                    "id": d["id"],
+                    "title": d.get("title", ""),
+                    "source": d.get("source", ""),
+                    "extractor": d.get("extractor", ""),
+                    "model_version": d.get("model_version", ""),
+                }
                 for d in kg.documents.values()
             ],
             batch_size,
@@ -187,7 +195,7 @@ class Neo4jStore:
             MERGE (m:Mention {id: row.id})
             SET m.text = row.text, m.type = row.type, m.sent_index = row.sent_index,
                 m.start = row.start, m.end = row.end, m.char_start = row.char_start,
-                m.char_end = row.char_end, m.score = row.score
+                m.char_end = row.char_end, m.score = row.score, m.page = row.page
             MERGE (d)-[:HAS_MENTION]->(m)
             MERGE (m)-[:REFERS_TO]->(e)
             """,
@@ -204,7 +212,10 @@ class Neo4jStore:
                     "score": t.score,
                     "docs": sorted({ev.doc_id for ev in t.evidence}),
                     "sentences": [
-                        f"{ev.doc_id}#{ev.sent_index}: {ev.sentence}" for ev in t.evidence
+                        f"{ev.doc_id}#{ev.sent_index}"
+                        + (f" (page {ev.page})" if ev.page else "")
+                        + f": {ev.sentence}"
+                        for ev in t.evidence
                     ][:20],
                 }
             )
@@ -220,7 +231,8 @@ class Neo4jStore:
                 MATCH (t:Entity {{id: row.tail}})
                 MERGE (h)-[r:{rtype} {{id: row.id}}]->(t)
                 ON CREATE SET r.status = $status, r.source = $source, r.support = 0,
-                              r.evidence_docs = [], r.evidence_sentences = []
+                              r.evidence_docs = [], r.evidence_sentences = [],
+                              r.model_version = $model_version
                 SET r.score = CASE WHEN r.score IS NULL OR row.score > r.score
                                    THEN row.score ELSE r.score END,
                     r.evidence_docs = r.evidence_docs +
@@ -235,6 +247,7 @@ class Neo4jStore:
                 batch_size,
                 status=status,
                 source=source,
+                model_version=model_version,
             )
         counts["relations"] = n_rel
         return counts

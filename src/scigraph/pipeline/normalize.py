@@ -27,6 +27,14 @@ ACRONYM_DEF = re.compile(
 )
 
 
+PTB_BRACKETS = {"-LRB-": "(", "-RRB-": ")", "-LSB-": "[", "-RSB-": "]", "-LCB-": "{", "-RCB-": "}"}
+
+
+def unescape_ptb(tokens: list[str]) -> list[str]:
+    """Replace Penn Treebank bracket escapes used in SciERC (e.g. -LRB-) by brackets."""
+    return [PTB_BRACKETS.get(t, t) for t in tokens]
+
+
 def singularize(word: str) -> str:
     w = word
     if len(w) <= 3 or w in NON_PLURAL_S or not w.isalpha():

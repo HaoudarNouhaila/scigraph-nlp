@@ -35,6 +35,7 @@ from scigraph.models.span_ner import (
 from scigraph.training.common import (
     CheckpointManager,
     JsonlLogger,
+    backward_and_step,
     get_device,
     grouped_parameters,
     parse_params,
@@ -56,6 +57,7 @@ DEFAULTS = {
     "warmup_ratio": 0.1,
     "weight_decay": 0.01,
     "grad_clip": 1.0,
+    "gradient_accumulation": 1,
     "seed": 42,
     "fp16": True,
     "save_every": 0,
@@ -139,7 +141,9 @@ def train(params: dict) -> dict:
     gold_too_long = sum(1 for s in train_s for e in s.entities if e.length > cfg.max_span_length)
 
     steps_per_epoch = math.ceil(len(train_feats) / params["batch_size"])
-    total_steps = steps_per_epoch * params["epochs"]
+    accum = max(1, int(params["gradient_accumulation"]))
+    # Scheduler steps are optimiser updates; checkpoints and logs count micro-batches.
+    total_steps = math.ceil(steps_per_epoch / accum) * params["epochs"]
     optimizer = torch.optim.AdamW(
         grouped_parameters(model, params["encoder_lr"], params["head_lr"], params["weight_decay"])
     )
@@ -184,18 +188,17 @@ def train(params: dict) -> dict:
             with torch.autocast(device_type=device.type, enabled=use_amp):
                 logits = model(**batch)
                 loss = loss_fn(logits.view(-1, len(NER_LABELS)).float(), labels.view(-1))
-            optimizer.zero_grad(set_to_none=True)
-            if scaler is not None:
-                scaler.scale(loss).backward()
-                scaler.unscale_(optimizer)
-                nn.utils.clip_grad_norm_(model.parameters(), params["grad_clip"])
-                scaler.step(optimizer)
-                scaler.update()
-            else:
-                loss.backward()
-                nn.utils.clip_grad_norm_(model.parameters(), params["grad_clip"])
-                optimizer.step()
-            scheduler.step()
+            boundary = (b_idx + 1) % accum == 0 or b_idx + 1 == steps_per_epoch
+            backward_and_step(
+                loss,
+                model,
+                optimizer,
+                scheduler,
+                scaler,
+                grad_clip=params["grad_clip"],
+                accumulation=accum,
+                boundary=boundary,
+            )
             global_step += 1
             running += loss.item()
             if global_step % 50 == 0:
@@ -207,7 +210,7 @@ def train(params: dict) -> dict:
                     elapsed=round(time.time() - t0, 1),
                 )
                 running = 0.0
-            if params["save_every"] and global_step % params["save_every"] == 0:
+            if params["save_every"] and global_step % params["save_every"] == 0 and boundary:
                 ckpt.save(
                     model=model,
                     optimizer=optimizer,

@@ -140,3 +140,38 @@ def parse_params(defaults: dict, description: str, argv=None) -> dict:
     if unknown:
         raise SystemExit(f"Unknown parameters in config: {sorted(unknown)}")
     return params
+
+
+def backward_and_step(
+    loss,
+    model,
+    optimizer,
+    scheduler,
+    scaler,
+    *,
+    grad_clip: float,
+    accumulation: int,
+    boundary: bool,
+) -> None:
+    """Backpropagate one micro-batch; update the weights on accumulation boundaries.
+
+    The loss is divided by the number of accumulated micro-batches so that the update
+    matches a single batch of ``accumulation * batch_size`` examples.
+    """
+    loss = loss / accumulation
+    if scaler is not None:
+        scaler.scale(loss).backward()
+    else:
+        loss.backward()
+    if not boundary:
+        return
+    if scaler is not None:
+        scaler.unscale_(optimizer)
+    torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+    if scaler is not None:
+        scaler.step(optimizer)
+        scaler.update()
+    else:
+        optimizer.step()
+    scheduler.step()
+    optimizer.zero_grad(set_to_none=True)
