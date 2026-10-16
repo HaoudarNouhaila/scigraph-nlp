@@ -1,0 +1,38 @@
+{
+  "hardware": {
+    "device": "cpu",
+    "cpu_count": 8,
+    "torch_threads": 4,
+    "platform": "Windows-10",
+    "torch": "2.14.1+cpu"
+  },
+  "protocol": "Median of 3 runs; model loading excluded; batch size 32 (NER) and 64 (RE); wall-clock time.",
+  "ner": {
+    "sentences": 551,
+    "seconds": 42.33,
+    "ms_per_sentence": 76.8
+  },
+  "re": {
+    "candidate_pairs": 5238,
+    "seconds": 335.7,
+    "ms_per_pair": 64.09
+  },
+  "end_to_end_sample_abstracts": {
+    "documents": 3,
+    "median_seconds_per_document": 1.822
+  },
+  "graph_construction_test_split": {
+    "entities": 1517,
+    "triples": 1073,
+    "seconds": 0.232
+  },
+  "neo4j_ingestion": {
+    "written": {
+      "documents": 100,
+      "entities": 1517,
+      "mentions": 1686,
+      "relations": 1073
+    },
+    "seconds": 1.08
+  }
+}

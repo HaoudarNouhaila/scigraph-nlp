@@ -9,7 +9,12 @@ from pathlib import Path
 import yaml
 
 DEFAULTS = {
-    "extraction": {"ner_threshold": 0.5, "re_threshold": 0.5, "max_sentence_tokens": 120},
+    "extraction": {
+        "ner_threshold": 0.5,
+        "re_threshold": 0.5,
+        "ner_decoding": "nested",
+        "max_sentence_tokens": 120,
+    },
     "entity_resolution": {"near_duplicate_jaccard": 0.75},
     "ingestion": {"batch_size": 500},
 }

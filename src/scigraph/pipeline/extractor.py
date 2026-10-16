@@ -57,6 +57,7 @@ class NeuralExtractor:
         cfg = graph_settings()["extraction"]
         self.ner_threshold = cfg["ner_threshold"] if ner_threshold is None else ner_threshold
         self.re_threshold = cfg["re_threshold"] if re_threshold is None else re_threshold
+        self.allow_overlap = cfg["ner_decoding"] == "nested"
         self.version = {
             "ner": _dir_fingerprint(Path(ner_dir)),
             "re": _dir_fingerprint(Path(re_dir)),
@@ -76,6 +77,7 @@ class NeuralExtractor:
             self.ner_model.config,
             60,
             self.device,
+            allow_overlap=self.allow_overlap,
             return_scores=True,
         )
         ent_preds = [[(e, sc) for e, sc in p if sc >= self.ner_threshold] for p in ent_preds]

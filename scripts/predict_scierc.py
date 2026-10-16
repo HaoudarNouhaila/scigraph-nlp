@@ -31,12 +31,27 @@ def main() -> None:
     p.add_argument("--ner", default="outputs/ner/best")
     p.add_argument("--re", default="outputs/re/best")
     p.add_argument("--out", type=Path, default=Path("outputs/pipeline_test.jsonl"))
+    p.add_argument(
+        "--decoding",
+        choices=["nested", "flat"],
+        default="nested",
+        help="NER decoding (see scripts/ner_decoding_ablation.py)",
+    )
     args = p.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     sents = load_split(args.data, args.split)
     ner_model, ner_tok = ner_mod.load_model(args.ner, device)
-    ents = ner_predict(ner_model, ner_tok, sents, ner_model.config, 60, device, return_scores=True)
+    ents = ner_predict(
+        ner_model,
+        ner_tok,
+        sents,
+        ner_model.config,
+        60,
+        device,
+        allow_overlap=args.decoding == "nested",
+        return_scores=True,
+    )
     spans = [[e for e, _ in sent] for sent in ents]
 
     re_model, re_tok = re_mod.load_model(args.re, device)

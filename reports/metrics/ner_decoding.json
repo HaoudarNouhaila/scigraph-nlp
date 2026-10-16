@@ -1,0 +1,67 @@
+{
+  "nested": {
+    "dev": {
+      "micro": {
+        "precision": 69.99,
+        "recall": 71.89,
+        "f1": 70.92,
+        "tp": 583,
+        "n_pred": 833,
+        "n_gold": 811
+      },
+      "macro_f1": 70.17,
+      "gold_nested_pairs": 7,
+      "gold_nested_pairs_fully_recovered": 1,
+      "predicted_overlapping_pairs": 30,
+      "predicted_overlapping_pairs_both_correct": 1
+    },
+    "test": {
+      "micro": {
+        "precision": 67.02,
+        "recall": 67.06,
+        "f1": 67.04,
+        "tp": 1130,
+        "n_pred": 1686,
+        "n_gold": 1685
+      },
+      "macro_f1": 66.43,
+      "gold_nested_pairs": 20,
+      "gold_nested_pairs_fully_recovered": 3,
+      "predicted_overlapping_pairs": 81,
+      "predicted_overlapping_pairs_both_correct": 3
+    }
+  },
+  "flat": {
+    "dev": {
+      "micro": {
+        "precision": 71.46,
+        "recall": 71.02,
+        "f1": 71.24,
+        "tp": 576,
+        "n_pred": 806,
+        "n_gold": 811
+      },
+      "macro_f1": 70.37,
+      "gold_nested_pairs": 7,
+      "gold_nested_pairs_fully_recovered": 0,
+      "predicted_overlapping_pairs": 0,
+      "predicted_overlapping_pairs_both_correct": 0
+    },
+    "test": {
+      "micro": {
+        "precision": 68.64,
+        "recall": 65.99,
+        "f1": 67.29,
+        "tp": 1112,
+        "n_pred": 1620,
+        "n_gold": 1685
+      },
+      "macro_f1": 66.35,
+      "gold_nested_pairs": 20,
+      "gold_nested_pairs_fully_recovered": 0,
+      "predicted_overlapping_pairs": 0,
+      "predicted_overlapping_pairs_both_correct": 0
+    }
+  },
+  "selected_on_dev": "flat"
+}

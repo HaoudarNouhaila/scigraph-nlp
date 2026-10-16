@@ -113,7 +113,7 @@ def highlight(sentence: dict) -> str:
 def entity_picker(label: str, key: str) -> str | None:
     from scigraph.graph.queries import run_named_query
 
-    text = st.text_input(label, key=f"{key}_text")
+    text = st.text_input(label, value=url_param(key), key=f"{key}_text")
     if not text.strip():
         return None
     rows = run_named_query(get_store(), "search_entities", {"text": text, "limit": 20})
@@ -145,7 +145,28 @@ def dot_graph(edges: list[dict], focus: str | None = None) -> str:
     return "\n".join(lines)
 
 
+def url_param(name: str, default: str = "") -> str:
+    """Read a URL query parameter; links such as ?sample=1 or ?entity=crf open a page
+    with its inputs pre-filled, which makes analyses shareable and reproducible."""
+    return str(st.query_params.get(name, default))
+
+
+def run_sample_if_requested() -> None:
+    """With ?sample=N, analyse data/samples/abstract_N.txt when nothing is analysed yet."""
+    from scigraph.pipeline.extractor import process_text
+
+    n = url_param("sample")
+    path = ROOT / "data" / "samples" / f"abstract_{n}.txt"
+    if n.isdigit() and path.exists() and st.session_state.get("sample_done") != n:
+        text = path.read_text(encoding="utf-8")
+        st.session_state["result"] = process_text(
+            text, extractor("auto"), title=path.stem, source=f"sample:{path.name}"
+        )
+        st.session_state["sample_done"] = n
+
+
 def current_result():
+    run_sample_if_requested()
     result = st.session_state.get("result")
     if result is None:
         st.info("Analyse a document on the Document Analysis page first.")
@@ -172,6 +193,7 @@ def page_document_analysis():
     ex = extractor(mode)
     st.caption(f"Active extractor: {ex.name}")
     source = st.radio("Input", ["Text", "PDF"], horizontal=True)
+    run_sample_if_requested()
     if source == "Text":
         sample = (ROOT / "data" / "samples" / "abstract_1.txt").read_text(encoding="utf-8")
         text = st.text_area("Scientific text", value=sample, height=180, max_chars=20000)
@@ -398,7 +420,9 @@ def page_scientific_queries():
     s = get_store()
     st.write("Predefined, parameterised Cypher queries. No free-form Cypher is accepted.")
     hidden = {"search_entities", "entity_neighbors", "entity_provenance", "review_queue"}
-    name = st.selectbox("Query", [q for q in QUERIES if q not in hidden])
+    names = [q for q in QUERIES if q not in hidden]
+    default = names.index(url_param("query")) if url_param("query") in names else 0
+    name = st.selectbox("Query", names, index=default)
     q = QUERIES[name]
     st.caption(q.description)
     params: dict = {}
@@ -414,9 +438,9 @@ def page_scientific_queries():
         elif spec.kind is float:
             params[pname] = st.number_input(pname, 0.0, 1.0, float(spec.default or 1.0), key=key)
         else:
-            params[pname] = st.text_input(pname, key=key)
+            params[pname] = st.text_input(pname, value=url_param(pname), key=key)
     params["statuses"] = status_filter(f"{name}_status")
-    if st.button("Run query", type="primary"):
+    if st.button("Run query", type="primary") or url_param("run") == "1":
         try:
             rows = run_named_query(s, name, params)
             st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
@@ -445,7 +469,7 @@ def page_scientific_queries():
         "Unlinked Method-Task, Method-Material and Metric-Task pairs ranked by the Adamic-Adar "
         "index of shared neighbours. These are candidates for review, not extracted facts."
     )
-    if st.button("Compute hypotheses"):
+    if st.button("Compute hypotheses") or url_param("hypotheses") == "1":
         g = analytics.build_graph(s.export_triples(("verified", "predicted")))
         st.dataframe(pd.DataFrame(analytics.candidate_links(g, 20)), hide_index=True)
 

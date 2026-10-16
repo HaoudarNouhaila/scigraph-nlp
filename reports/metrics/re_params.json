@@ -1,0 +1,22 @@
+{
+  "data_dir": "data/processed",
+  "output_dir": "outputs/re",
+  "ner_predictions_dir": "outputs/ner",
+  "encoder_name": "allenai/scibert_scivocab_uncased",
+  "max_seq_length": 256,
+  "epochs": 5,
+  "batch_size": 32,
+  "eval_batch_size": 64,
+  "encoder_lr": 3e-05,
+  "head_lr": 0.0001,
+  "warmup_ratio": 0.1,
+  "weight_decay": 0.01,
+  "grad_clip": 1.0,
+  "gradient_accumulation": 1,
+  "seed": 42,
+  "fp16": false,
+  "save_every": 50,
+  "negative_ratio": 1.5,
+  "max_train_sentences": null,
+  "max_eval_sentences": null
+}

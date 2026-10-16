@@ -1,0 +1,76 @@
+{
+  "protocol": "Graphs built from SciERC test documents (100 abstracts). Facts are compared per document after normalisation: (head type, head key, relation, tail type, tail key); symmetric relations are unordered.",
+  "gold_graph": {
+    "documents": 100,
+    "mentions": 1685,
+    "entities": 1488,
+    "global_entities": 1237,
+    "mentions_per_entity": 1.132,
+    "entities_in_several_documents": 33,
+    "entities_with_aliases": 38,
+    "triples": 970,
+    "triples_supported_by_several_documents": 4,
+    "candidate_duplicate_pairs": 7,
+    "self_loops": 0,
+    "triples_with_evidence_pct": 100.0,
+    "mentions_with_document_pct": 100.0,
+    "shacl_conforms": true,
+    "shacl_warnings": 18,
+    "shacl_violations": 0
+  },
+  "predicted_graph": {
+    "documents": 100,
+    "mentions": 1686,
+    "entities": 1517,
+    "global_entities": 1258,
+    "mentions_per_entity": 1.111,
+    "entities_in_several_documents": 32,
+    "entities_with_aliases": 35,
+    "triples": 1073,
+    "triples_supported_by_several_documents": 9,
+    "candidate_duplicate_pairs": 11,
+    "self_loops": 0,
+    "triples_with_evidence_pct": 100.0,
+    "mentions_with_document_pct": 100.0,
+    "shacl_conforms": true,
+    "shacl_warnings": 27,
+    "shacl_violations": 0
+  },
+  "fact_level": {
+    "typed": {
+      "precision": 33.27,
+      "recall": 36.88,
+      "f1": 34.98,
+      "tp": 357,
+      "n_pred": 1073,
+      "n_gold": 968
+    },
+    "untyped_entities": {
+      "precision": 44.45,
+      "recall": 49.28,
+      "f1": 46.74,
+      "tp": 477,
+      "n_pred": 1073,
+      "n_gold": 968
+    }
+  },
+  "predicted_triples_with_signature_unseen_in_train": 24,
+  "predicted_triples_with_signature_unseen_in_train_pct": 2.24,
+  "unseen_signatures": {
+    "OtherScientificTerm EVALUATE-FOR Generic": 3,
+    "Task HYPONYM-OF OtherScientificTerm": 3,
+    "OtherScientificTerm HYPONYM-OF Metric": 2,
+    "Task FEATURE-OF OtherScientificTerm": 2,
+    "Generic FEATURE-OF Method": 2,
+    "Generic HYPONYM-OF Metric": 2,
+    "Method COMPARE OtherScientificTerm": 1,
+    "Generic EVALUATE-FOR Metric": 1,
+    "Material EVALUATE-FOR OtherScientificTerm": 1,
+    "Method CONJUNCTION Material": 1,
+    "Task PART-OF OtherScientificTerm": 1,
+    "OtherScientificTerm CONJUNCTION Task": 1,
+    "Method COMPARE Task": 1,
+    "Metric COMPARE Method": 1,
+    "Metric EVALUATE-FOR Metric": 1
+  }
+}

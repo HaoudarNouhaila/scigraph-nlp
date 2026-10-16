@@ -44,10 +44,36 @@
       "recall": 67.06,
       "f1": 67.04,
       "macro_f1": 66.43
+    },
+    {
+      "system": "SciBERT marker RE",
+      "task": "RE",
+      "setting": "A: gold entities",
+      "precision": 67.29,
+      "recall": 73.51,
+      "f1": 70.26,
+      "macro_f1": 67.07
+    },
+    {
+      "system": "SciBERT NER + RE",
+      "task": "RE",
+      "setting": "B: predicted entities (boundaries)",
+      "precision": 45.29,
+      "recall": 50.31,
+      "f1": 47.67,
+      "macro_f1": 45.9
+    },
+    {
+      "system": "SciBERT NER + RE",
+      "task": "RE",
+      "setting": "B: predicted entities (strict)",
+      "precision": 33.18,
+      "recall": 36.86,
+      "f1": 34.92,
+      "macro_f1": 35.28
     }
   ],
   "notes": [
-    "RE metrics not found at outputs\\__missing__\\metrics.json",
     "All scores are micro-averaged on the official SciERC test split (551 sentences)."
   ]
 }

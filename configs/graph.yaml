@@ -2,6 +2,7 @@
 extraction:
   ner_threshold: 0.5        # minimum span probability for an entity
   re_threshold: 0.5         # minimum class probability for a relation
+  ner_decoding: nested      # nested | flat (see reports/metrics/ner_decoding.json)
   max_sentence_tokens: 120  # longer sentences (tables, lists) are split into chunks
 entity_resolution:
   near_duplicate_jaccard: 0.75   # report (not merge) same-type entities above this overlap
