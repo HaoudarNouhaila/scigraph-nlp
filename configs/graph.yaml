@@ -1,0 +1,9 @@
+# Settings of the extraction pipeline and of graph construction.
+extraction:
+  ner_threshold: 0.5        # minimum span probability for an entity
+  re_threshold: 0.5         # minimum class probability for a relation
+  max_sentence_tokens: 120  # longer sentences (tables, lists) are split into chunks
+entity_resolution:
+  near_duplicate_jaccard: 0.75   # report (not merge) same-type entities above this overlap
+ingestion:
+  batch_size: 500

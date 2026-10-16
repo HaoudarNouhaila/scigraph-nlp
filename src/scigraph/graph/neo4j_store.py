@@ -135,11 +135,15 @@ class Neo4jStore:
         kg: KnowledgeGraph,
         status: str = "predicted",
         source: str = "scigraph-pipeline",
-        batch_size: int = 500,
+        batch_size: int | None = None,
         model_version: str = "",
     ) -> dict[str, int]:
         if status not in ("predicted", "verified"):
             raise ValueError("status must be 'predicted' or 'verified'")
+        if batch_size is None:
+            from scigraph.config import graph_settings
+
+            batch_size = graph_settings()["ingestion"]["batch_size"]
         counts = {}
         counts["documents"] = self._write_batches(
             """

@@ -17,6 +17,7 @@ import os
 import time
 from pathlib import Path
 
+from scigraph.config import graph_settings
 from scigraph.pipeline.graph_builder import GraphBuilder, KnowledgeGraph
 from scigraph.pipeline.text import TokenizedSentence, clean_text, split_sentences
 from scigraph.schema import Sentence, Span
@@ -44,8 +45,8 @@ class NeuralExtractor:
         ner_dir: str | Path,
         re_dir: str | Path,
         device: str = "cpu",
-        ner_threshold: float = 0.5,
-        re_threshold: float = 0.5,
+        ner_threshold: float | None = None,
+        re_threshold: float | None = None,
     ):
         from scigraph.models import relation as re_mod
         from scigraph.models import span_ner as ner_mod
@@ -53,8 +54,9 @@ class NeuralExtractor:
         self.device = device
         self.ner_model, self.ner_tok = ner_mod.load_model(ner_dir, device)
         self.re_model, self.re_tok = re_mod.load_model(re_dir, device)
-        self.ner_threshold = ner_threshold
-        self.re_threshold = re_threshold
+        cfg = graph_settings()["extraction"]
+        self.ner_threshold = cfg["ner_threshold"] if ner_threshold is None else ner_threshold
+        self.re_threshold = cfg["re_threshold"] if re_threshold is None else re_threshold
         self.version = {
             "ner": _dir_fingerprint(Path(ner_dir)),
             "re": _dir_fingerprint(Path(re_dir)),
@@ -164,7 +166,7 @@ def process_text(
     """Run the full pipeline on one document and return sentences, triples and graph."""
     t0 = time.time()
     clean = clean_text(text)
-    sentences = split_sentences(clean)
+    sentences = split_sentences(clean, graph_settings()["extraction"]["max_sentence_tokens"])
     extracted = extractor.extract(sentences)
     if page_starts:
         from scigraph.pipeline.pdf import page_of
@@ -181,7 +183,7 @@ def process_text(
         "model_version": ",".join(f"{k}:{v}" for k, v in version.items()) if version else "",
     }
     builder.add_document(doc_id, meta, clean, extracted)
-    kg = builder.finalize()
+    kg = builder.finalize(graph_settings()["entity_resolution"]["near_duplicate_jaccard"])
     return {
         "doc_id": doc_id,
         "extractor": extractor.name,
