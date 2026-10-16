@@ -122,7 +122,11 @@ def run_sparql(g: Graph, name: str) -> list[dict]:
 
 
 def validate_shacl(g: Graph) -> tuple[bool, str]:
-    """Validate with pySHACL (optional dependency). Returns (conforms, report text)."""
+    """Validate with pySHACL (optional dependency). Returns (conforms, report text).
+
+    Violations make the graph non-conformant; warnings (atypical EVALUATE-FOR subjects)
+    are reported in the text only.
+    """
     from pyshacl import validate
 
     shapes = Graph().parse(ONTOLOGY_DIR / "shapes.ttl", format="turtle")

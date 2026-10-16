@@ -1,0 +1,50 @@
+{
+  "protocol": "Gold graph of the SciERC test split (100 documents) ingested into Neo4j 5.26; reference answers from gold annotations and NetworkX; random samples with seed 13. Latency measured client-side on a local instance (Python driver).",
+  "ingestion_seconds": 1.7,
+  "graph": {
+    "entities": 1488,
+    "relations": 970
+  },
+  "results": {
+    "methods_for_task": {
+      "cases": 50,
+      "passed": 50
+    },
+    "entity_neighbors": {
+      "cases": 50,
+      "passed": 50
+    },
+    "shortest_paths": {
+      "connected_cases": 50,
+      "connected_passed": 50,
+      "disconnected_cases": 50,
+      "disconnected_passed": 50
+    },
+    "relation_evidence": {
+      "cases": 50,
+      "passed": 50
+    }
+  },
+  "latency_ms": {
+    "methods_for_task": {
+      "median": 7.27,
+      "p95": 11.49,
+      "n": 50
+    },
+    "entity_neighbors": {
+      "median": 6.11,
+      "p95": 7.74,
+      "n": 50
+    },
+    "shortest_paths": {
+      "median": 6.04,
+      "p95": 15.28,
+      "n": 50
+    },
+    "relation_evidence": {
+      "median": 9.5,
+      "p95": 17.06,
+      "n": 50
+    }
+  }
+}

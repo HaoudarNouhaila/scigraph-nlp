@@ -25,9 +25,9 @@ sg:AssertionShape a sh:NodeShape ;
 # EVALUATE-FOR should have a Metric or Material as subject (annotation guideline).
 sg:EvaluateForShape a sh:NodeShape ;
     sh:targetClass sg:Assertion ;
+    sh:severity sh:Warning ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:severity sh:Warning ;
         sh:message "EVALUATE-FOR assertion whose subject is neither a Metric nor a Material" ;
         sh:select """
             PREFIX sg: <https://w3id.org/scigraph-nlp/ontology#>

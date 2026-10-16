@@ -18,6 +18,7 @@ RUN pip install ".[ui,shacl]" \
 COPY scripts ./scripts
 COPY configs ./configs
 COPY data/samples ./data/samples
+COPY app ./app
 COPY reports ./reports
 
 RUN useradd --create-home appuser && chown -R appuser /app

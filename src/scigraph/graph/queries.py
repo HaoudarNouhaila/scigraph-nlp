@@ -103,7 +103,7 @@ register(
     MATCH (m:Entity {type: 'Method'})-[r:USED_FOR]->(t:Entity {type: 'Task'})
     WHERE toLower(t.name) CONTAINS toLower($task) AND r.status IN $statuses
     RETURN m.name AS method, t.name AS task, r.score AS score, r.support AS support,
-           r.status AS status
+           r.status AS status, r.id AS relation_id
     ORDER BY r.support DESC, r.score DESC LIMIT $limit
     """,
         {"task": Param(str, required=True), "limit": Param(int, 25, min=1, max=200)},
@@ -117,7 +117,8 @@ register(
         """
     MATCH (m:Entity {type: 'Metric'})-[r:EVALUATE_FOR]->(t:Entity)
     WHERE toLower(t.name) CONTAINS toLower($task) AND r.status IN $statuses
-    RETURN m.name AS metric, t.name AS target, t.type AS target_type, r.support AS support
+    RETURN m.name AS metric, t.name AS target, t.type AS target_type, r.support AS support,
+           r.status AS status, r.id AS relation_id
     ORDER BY r.support DESC LIMIT $limit
     """,
         {"task": Param(str, required=True), "limit": Param(int, 25, min=1, max=200)},
@@ -131,7 +132,8 @@ register(
         """
     MATCH (d:Entity {type: 'Material'})-[r:USED_FOR|EVALUATE_FOR]->(t:Entity)
     WHERE toLower(t.name) CONTAINS toLower($task) AND r.status IN $statuses
-    RETURN d.name AS material, type(r) AS relation, t.name AS target, r.support AS support
+    RETURN d.name AS material, type(r) AS relation, t.name AS target, r.support AS support,
+           r.status AS status, r.id AS relation_id
     ORDER BY r.support DESC LIMIT $limit
     """,
         {"task": Param(str, required=True), "limit": Param(int, 25, min=1, max=200)},
@@ -231,7 +233,8 @@ register(
     MATCH (m:Entity {type: 'Method'})-[r:%s]-(c:Entity)
     WHERE toLower(m.name) CONTAINS toLower($method) AND r.status IN $statuses
     RETURN m.name AS method, type(r) AS relation, startNode(r) = m AS outgoing,
-           c.name AS concept, c.type AS concept_type, r.support AS support
+           c.name AS concept, c.type AS concept_type, r.support AS support,
+           r.status AS status, r.id AS relation_id
     ORDER BY r.support DESC LIMIT $limit
     """,
         {"method": Param(str, required=True), "limit": Param(int, 50, min=1, max=500)},
@@ -246,7 +249,8 @@ register(
     MATCH (h:Entity)-[r:%s]->(t:Entity)
     WHERE r.status IN $statuses AND r.support >= $min_support
     RETURN h.name AS head, h.type AS head_type, type(r) AS relation, t.name AS tail,
-           t.type AS tail_type, r.support AS support
+           t.type AS tail_type, r.support AS support, r.status AS status,
+           r.id AS relation_id
     ORDER BY r.support DESC, h.name LIMIT $limit
     """,
         {"min_support": Param(int, 1, min=1, max=1000), "limit": Param(int, 25, min=1, max=500)},
