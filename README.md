@@ -278,8 +278,143 @@ checkpoint. Hardware: CPU only (8 cores, 16 GB RAM, Windows 11, PyTorch 2.14 CPU
 <!-- RESULTS:START -->
 ## 13. Results
 
-Training is in progress; this section is filled in from `reports/metrics/` once the runs
-have finished. No number is reported before it is measured.
+All numbers below were produced by the runs described in section 12 and are stored in
+`reports/metrics/`. They come from a single training run per model (seed 42) with the CPU
+configuration, so no variance estimate is available. Scores are on the official SciERC test
+split (100 abstracts, 551 sentences, 1,685 entities, 974 relations) with the best dev
+checkpoint. No comparison with published systems is claimed, because configuration and
+compute differ.
+
+### Experiment 1: named entity recognition
+
+Exact match of boundaries and type.
+
+| System | Precision | Recall | Micro-F1 | Macro-F1 |
+|---|---:|---:|---:|---:|
+| Rule baseline (spaCy noun chunks + lexicons) | 21.03 | 37.45 | 26.94 | 27.41 |
+| SciBERT span classifier | 67.02 | 67.06 | **67.04** | 66.43 |
+
+* Dev micro-F1 of the selected checkpoint (epoch 10 of 10): 70.92.
+* Ignoring the type (boundaries only), test F1 is 79.15: about 12 points are lost to type
+  confusions, mostly OtherScientificTerm vs Method and Method vs Task.
+* Per type (test F1): Method 75.42, Generic 71.54, Metric 64.52, Task 63.36,
+  OtherScientificTerm 62.05, Material 61.69.
+* Nested entities: of the 20 nested gold pairs in test, 3 are recovered entirely. The model
+  outputs 81 overlapping pairs, of which 3 are fully correct. Decoding without overlap
+  (`scripts/ner_decoding_ablation.py`) gives 71.24 dev / 67.29 test micro-F1, against
+  70.92 / 67.04 for nested decoding. The difference is small for a single run; nested
+  decoding is kept as configured before evaluation, and the decoder is a setting in
+  `configs/graph.yaml`.
+
+![NER per type](reports/figures/ner_per_type.png)
+
+### Experiment 2: relation extraction on gold entities (Experiment A)
+
+| System | Precision | Recall | Micro-F1 | Macro-F1 |
+|---|---:|---:|---:|---:|
+| Rule baseline (lexical patterns) | 67.65 | 16.53 | 26.57 | 18.50 |
+| SciBERT typed-marker classifier | 67.29 | 73.51 | **70.26** | 67.07 |
+
+Dev micro-F1 of the selected checkpoint (epoch 4 of 5): 71.27. With gold entities the strict
+and boundaries criteria coincide.
+
+| Relation | P | R | F1 | Gold |
+|---|---:|---:|---:|---:|
+| CONJUNCTION | 79.70 | 86.18 | 82.81 | 123 |
+| HYPONYM-OF | 75.95 | 89.55 | 82.19 | 67 |
+| COMPARE | 74.42 | 84.21 | 79.01 | 38 |
+| USED-FOR | 68.98 | 74.67 | 71.71 | 533 |
+| EVALUATE-FOR | 58.26 | 73.63 | 65.05 | 91 |
+| PART-OF | 61.11 | 34.92 | 44.44 | 63 |
+| FEATURE-OF | 38.27 | 52.54 | 44.29 | 59 |
+
+Recall exceeds precision for most types, consistent with training on a subsample of
+negative pairs. The largest confusion is between USED-FOR and no relation in both directions
+(142 pairs without a relation predicted as USED-FOR, 98 USED-FOR pairs missed).
+
+![Relation confusion](reports/figures/re_confusion.png)
+
+### Experiment 3: end-to-end extraction (Experiment B)
+
+Relations predicted on the entities predicted by the NER model.
+
+| System | Criterion | Precision | Recall | Micro-F1 | Macro-F1 |
+|---|---|---:|---:|---:|---:|
+| Rule baseline | boundaries | 12.22 | 8.32 | 9.90 | 6.79 |
+| Rule baseline | strict | 6.18 | 4.21 | 5.01 | 3.96 |
+| SciBERT NER + RE | boundaries | 45.29 | 50.31 | **47.67** | 45.90 |
+| SciBERT NER + RE | strict | 33.18 | 36.86 | **34.92** | 35.28 |
+
+Error propagation: relation F1 drops from 70.26 with gold entities to 47.67 with predicted
+entities. Of the 974 gold test relations, 490 are found; 311 are missed because NER did not
+find one of the two arguments with exact boundaries, 108 because the pair was classified as
+no relation, 40 receive a wrong label and 25 the wrong direction (notebook
+`04_evaluation.ipynb`). The further drop from boundaries to strict (12.75 points) comes
+from argument type errors. Running the pipeline again from the saved models
+(`scripts/predict_scierc.py`) reproduces these scores exactly.
+
+### Experiment 4: knowledge graph quality
+
+Graphs of the 100 test documents built from gold annotations and from end-to-end
+predictions, after normalisation and entity resolution (`reports/metrics/graph_quality.json`).
+
+| | Gold graph | Predicted graph |
+|---|---:|---:|
+| Mentions / entities | 1,685 / 1,488 | 1,686 / 1,517 |
+| Entities linked across documents | 33 | 32 |
+| Triples | 970 | 1,073 |
+| Candidate duplicate pairs (reported, not merged) | 7 | 11 |
+| Self-loops | 0 | 0 |
+| Triples with evidence sentence | 100 % | 100 % |
+| SHACL violations / warnings | 0 / 18 | 0 / 27 |
+
+* Document-level fact precision / recall / F1 of the predicted graph against the gold graph:
+  33.27 / 36.88 / 34.98 with entity types, 44.45 / 49.28 / 46.74 without. These are close to
+  the sentence-level strict and boundaries scores, as expected when entity resolution is
+  conservative.
+* 24 predicted triples (2.24 %) have a (head type, relation, tail type) signature never seen
+  in the training annotations, for example `Task HYPONYM-OF OtherScientificTerm`.
+* The 18 SHACL warnings on the gold graph are gold EVALUATE-FOR assertions whose subject is
+  neither a Metric nor a Material: the constraint reflects the guideline, not the data.
+
+### Experiment 5: graph querying
+
+The gold test graph was loaded into Neo4j 5.26 and each query compared with reference
+answers derived from the gold annotations and from NetworkX (`scripts/evaluate_queries.py`,
+50 random cases per check, seed 13).
+
+| Check | Passed | Median / p95 latency (ms) |
+|---|---:|---:|
+| `methods_for_task` returns the annotated method | 50 / 50 | 8.1 / 20.1 |
+| `entity_neighbors` equals the NetworkX neighbourhood | 50 / 50 | 6.4 / 9.4 |
+| Shortest path length equals NetworkX (2 to 4 hops) | 50 / 50 | 5.9 / 6.8 |
+| No path between different components | 50 / 50 | - |
+| `relation_evidence` returns the source documents | 50 / 50 | 7.9 / 11.1 |
+
+Latency is client-side on a local single-instance database holding about 1,500 entities; it
+says nothing about behaviour at scale.
+
+### Experiment 6: performance
+
+CPU only (8 logical cores, PyTorch using 4 threads), median of 3 runs, model loading
+excluded (`reports/metrics/performance.json`).
+
+| Step | Input | Time |
+|---|---|---:|
+| NER | 551 test sentences | 42.3 s (76.8 ms per sentence) |
+| RE | 5,238 candidate pairs | 335.7 s (64.1 ms per pair) |
+| Full pipeline | one sample abstract (4 sentences) | 1.82 s |
+| Graph construction | test predictions (1,517 entities, 1,073 triples) | 0.23 s |
+| Neo4j ingestion | same graph, 100 documents, 1,686 mentions | 1.08 s |
+
+Relation extraction dominates because each candidate pair is encoded separately (one
+encoder pass per pair). Training took about 1 h 54 min for NER (10 epochs) and 6 h 15 min
+for RE (5 epochs); RE training was slowed by memory pressure on the machine.
+
+### Training curves
+
+![NER training](reports/figures/ner_training.png)
+![RE training](reports/figures/re_training.png)
 <!-- RESULTS:END -->
 
 ## 14. Installation
@@ -413,7 +548,19 @@ Interactive documentation is served at `/docs`.
 Pages: Document Analysis (entities), Relation Extraction (relations and triples), Knowledge
 Graph (filtered visualisation, centrality, communities), Graph Exploration (neighbourhoods,
 multi-hop paths, review queue), Scientific Queries (named queries, evidence, inferred
-relations, hypotheses), Model Evaluation (measured metrics and figures).
+relations, hypotheses), Model Evaluation (measured metrics and figures). Inputs can be
+pre-filled from the URL, for example `/?sample=1`, `/exploration?explore=crf` or
+`/queries?query=methods_for_task&task=translation&run=1`.
+
+The screenshots below were captured from the running app with the trained models and the
+demonstration graph (SciERC test predictions, SciERC test gold annotations as verified
+knowledge, the three sample abstracts) using `scripts/capture_screenshots.py`.
+
+| | |
+|---|---|
+| ![Document analysis](docs/images/document_analysis.png) | ![Relation extraction](docs/images/relation_extraction.png) |
+| ![Knowledge graph](docs/images/knowledge_graph.png) | ![Graph exploration](docs/images/graph_exploration.png) |
+| ![Scientific queries](docs/images/scientific_queries.png) | ![Model evaluation](docs/images/model_evaluation.png) |
 
 With Docker (not tested on the development machine, which has no Docker; the image build
 runs in CI):

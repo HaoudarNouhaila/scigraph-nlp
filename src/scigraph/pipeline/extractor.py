@@ -59,8 +59,8 @@ class NeuralExtractor:
         self.re_threshold = cfg["re_threshold"] if re_threshold is None else re_threshold
         self.allow_overlap = cfg["ner_decoding"] == "nested"
         self.version = {
-            "ner": _dir_fingerprint(Path(ner_dir)),
-            "re": _dir_fingerprint(Path(re_dir)),
+            "ner": dir_fingerprint(Path(ner_dir)),
+            "re": dir_fingerprint(Path(re_dir)),
         }
 
     def extract(self, sentences: list[TokenizedSentence]) -> list[dict]:
@@ -133,7 +133,7 @@ def _pack(sent: TokenizedSentence, ents: list[tuple[Span, float]], rels) -> dict
     }
 
 
-def _dir_fingerprint(d: Path) -> str:
+def dir_fingerprint(d: Path) -> str:
     f = d / "model.pt"
     if not f.exists():
         return "missing"
@@ -150,6 +150,14 @@ def load_extractor(ner_dir: str | None = None, re_dir: str | None = None, prefer
     if not have:
         raise FileNotFoundError(f"Trained models not found in {ner_dir} and {re_dir}")
     return NeuralExtractor(ner_dir, re_dir)
+
+
+def model_version_string(extractor) -> str:
+    """Compact identifier of the model weights used, stored with every relation."""
+    version = getattr(extractor, "version", None)
+    if not version:
+        return extractor.name
+    return ",".join(f"{k}:{v}" for k, v in version.items())
 
 
 def doc_id_for(text: str, source: str = "") -> str:
@@ -177,12 +185,11 @@ def process_text(
             sent["page"] = page_of(sent["char_start"], page_starts)
     doc_id = doc_id or doc_id_for(clean, source)
     builder = builder or GraphBuilder()
-    version = getattr(extractor, "version", None)
     meta = {
         "title": title,
         "source": source,
         "extractor": extractor.name,
-        "model_version": ",".join(f"{k}:{v}" for k, v in version.items()) if version else "",
+        "model_version": model_version_string(extractor),
     }
     builder.add_document(doc_id, meta, clean, extracted)
     kg = builder.finalize(graph_settings()["entity_resolution"]["near_duplicate_jaccard"])

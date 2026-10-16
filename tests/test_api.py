@@ -19,8 +19,9 @@ class FakeStore:
         self.calls.append((query, params))
         return [{"id": "e:1", "name": "CRF", "type": "Method"}]
 
-    def ingest(self, kg, status="predicted", source=""):
+    def ingest(self, kg, status="predicted", source="", model_version=""):
         self.ingested.append((kg, status, source))
+        self.model_version = model_version
         return {"entities": len(kg.entities), "relations": len(kg.triples)}
 
     def set_relation_status(self, rid, status, reviewer, note=""):
@@ -92,6 +93,7 @@ def test_ingest_marks_data_as_predicted(client, sample_texts):
     assert r.status_code == 200
     _, status, source = client.store.ingested[0]
     assert status == "predicted" and source == "rule-baseline"
+    assert client.store.model_version == "rule-baseline"
     assert client.post("/graph/ingest", json={"text": "x", "source": "a b"}).status_code == 422
 
 

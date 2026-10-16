@@ -52,7 +52,7 @@ def cmd_extract(args) -> None:
 
 def cmd_ingest(args) -> None:
     from scigraph.graph.neo4j_store import Neo4jStore
-    from scigraph.pipeline.extractor import process_pdf, process_text
+    from scigraph.pipeline.extractor import model_version_string, process_pdf, process_text
 
     ex = _extractor(args.extractor)
     files = sorted(p for p in Path(args.path).rglob("*") if p.suffix.lower() in (".txt", ".pdf"))
@@ -72,7 +72,11 @@ def cmd_ingest(args) -> None:
     kg = builder.finalize()
     with Neo4jStore() as store:
         store.create_schema()
-        print(store.ingest(kg, status="predicted", source=ex.name))
+        print(
+            store.ingest(
+                kg, status="predicted", source=ex.name, model_version=model_version_string(ex)
+            )
+        )
 
 
 def _scierc_graph(split: str, data_dir: str, predictions: str | None) -> GraphBuilder:
@@ -147,11 +151,17 @@ def cmd_ingest_gold(args) -> None:
 
 def cmd_ingest_predictions(args) -> None:
     from scigraph.graph.neo4j_store import Neo4jStore
+    from scigraph.pipeline.extractor import dir_fingerprint
 
     kg = _scierc_graph(args.split, args.data, args.predictions).finalize()
+    version = ",".join(f"{m}:{dir_fingerprint(Path(f'outputs/{m}/best'))}" for m in ("ner", "re"))
     with Neo4jStore() as store:
         store.create_schema()
-        print(store.ingest(kg, status="predicted", source="scibert-pipeline"))
+        print(
+            store.ingest(
+                kg, status="predicted", source="scibert-span-ner+marker-re", model_version=version
+            )
+        )
 
 
 def cmd_export_ttl(args) -> None:

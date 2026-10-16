@@ -34,7 +34,13 @@ from scigraph.graph.queries import (
     khop_neighbourhood,
     run_named_query,
 )
-from scigraph.pipeline.extractor import load_extractor, process_pdf, process_text, triples_table
+from scigraph.pipeline.extractor import (
+    load_extractor,
+    model_version_string,
+    process_pdf,
+    process_text,
+    triples_table,
+)
 
 MAX_PDF_BYTES = 15 * 1024 * 1024
 
@@ -124,7 +130,12 @@ async def extract_pdf(file: UploadFile = File(...), extractor=Depends(get_extrac
 @app.post("/graph/ingest")
 def ingest(req: IngestRequest, extractor=Depends(get_extractor), store=Depends(get_store)):
     result = process_text(req.text, extractor, title=req.title, source=req.source)
-    counts = store.ingest(result["graph"], status="predicted", source=extractor.name)
+    counts = store.ingest(
+        result["graph"],
+        status="predicted",
+        source=extractor.name,
+        model_version=model_version_string(extractor),
+    )
     return {"doc_id": result["doc_id"], "extractor": extractor.name, "written": counts}
 
 

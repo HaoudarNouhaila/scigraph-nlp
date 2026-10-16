@@ -113,6 +113,17 @@ these use no cross-sentence context, fewer epochs and negative sampling for RE. 
 configurations are provided and used by the notebooks when CUDA is present, but they have
 not been run; no result in this repository comes from them.
 
+Measured wall-clock training time: 1 h 54 min for NER (10 epochs) and 6 h 15 min for RE
+(5 epochs, slowed by memory pressure). Checkpoints are about 1.3 GB because they include
+the AdamW state; exported `best/` models are about 420 MB each.
+
+### Decoding
+
+NER decoding is a setting (`configs/graph.yaml`, `extraction.ner_decoding`). The reported
+results use `nested`, fixed before evaluation. The ablation in
+`reports/metrics/ner_decoding.json` shows that non-overlapping decoding is 0.32 F1 higher
+on dev; with a single run this difference is not conclusive.
+
 ## Knowledge graph construction
 
 ### Entity resolution rules

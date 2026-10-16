@@ -152,7 +152,7 @@ pd.DataFrame([(h, r, t, n) for (h, r, t), n in c.most_common(15)],
 """),
             md("## Rule baseline"),
             code("""
-subprocess.run([sys.executable, "scripts/run_baseline.py"], check=True)
+_ = subprocess.run([sys.executable, "scripts/run_baseline.py"], check=True)
 """),
         ]
     )
@@ -186,7 +186,7 @@ print(yaml.safe_load(Path(CONFIG).read_text()))
 # Training (resumes automatically if a checkpoint exists in OUTPUTS/ner).
 cmd = [sys.executable, "-m", "scigraph.training.train_ner", "--config", CONFIG,
        "--set", f"output_dir={OUTPUTS / 'ner'}"]
-subprocess.run(cmd, check=True)
+_ = subprocess.run(cmd, check=True)
 """),
             code("""
 import json
@@ -222,7 +222,7 @@ Run notebook 02 first, so that `OUTPUTS/ner/predictions_{dev,test}.jsonl` exist.
 CONFIG = "configs/re.yaml" if torch.cuda.is_available() else "configs/re_cpu.yaml"
 cmd = [sys.executable, "-m", "scigraph.training.train_re", "--config", CONFIG,
        "--set", f"output_dir={OUTPUTS / 're'}", f"ner_predictions_dir={OUTPUTS / 'ner'}"]
-subprocess.run(cmd, check=True)
+_ = subprocess.run(cmd, check=True)
 """),
             code("""
 import json, pandas as pd

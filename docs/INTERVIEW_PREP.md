@@ -197,5 +197,31 @@ lengths on sampled pairs.
 
 ## Trained models and measured results
 
-See `README.md` (section Results) and `reports/metrics/summary.json`. The numbers are filled
-in from the actual runs; this file does not restate them to avoid divergence.
+Full tables are in `README.md` (section Results); the files are in `reports/metrics/`.
+The points worth being able to explain without notes:
+
+* **What was trained.** Span NER: SciBERT-base, span width up to 8, width embedding 150,
+  two-layer MLP, 10 epochs, batch 16, learning rates 3e-5 (encoder) and 5e-4 (head),
+  sentence-level input without context, 1 h 54 min on CPU. Relation classifier:
+  SciBERT-base with 24 typed marker tokens, 5 epochs, batch 32, 1.5 sampled negatives per
+  positive, learning rates 3e-5 and 1e-4, 6 h 15 min on CPU. One run each, seed 42.
+* **Headline numbers (test).** NER micro-F1 67.04 (baseline 26.94). Relations with gold
+  entities 70.26 (baseline 26.57). End to end 47.67 (boundaries) and 34.92 (strict).
+* **Why the end-to-end score drops.** 311 of the 974 gold relations are lost because NER
+  misses an argument boundary; 108 because the pair is classified as no relation; 40 wrong
+  label; 25 wrong direction. Strict is 12.75 points below boundaries because argument types
+  are wrong (OtherScientificTerm vs Method is the most frequent confusion).
+* **Nested entities.** The model can represent them, but only 3 of 20 nested test pairs
+  are fully recovered, and a non-overlapping decoder is slightly better (+0.3 dev F1). The
+  honest conclusion is that the formulation supports nesting but this training budget does
+  not exploit it.
+* **Hardest relations.** FEATURE-OF and PART-OF (F1 about 44 with gold entities): they are
+  rare and semantically close to USED-FOR and HYPONYM-OF.
+* **Graph.** The predicted test graph has 1,517 entities and 1,073 triples; fact-level F1
+  against the gold graph is 34.98 with types, consistent with the strict score; no SHACL
+  violation; every triple has an evidence sentence.
+* **Queries.** 250 of 250 reference checks against gold annotations and NetworkX passed;
+  median latency 6 to 8 ms on a local instance.
+* **What I would say about compute.** Training ran on CPU because no GPU was available; the
+  configuration was reduced accordingly (no cross-sentence context, fewer epochs, negative
+  sampling). I would not compare these numbers with published GPU results.
