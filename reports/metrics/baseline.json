@@ -1,0 +1,694 @@
+{
+  "dev": {
+    "ner": {
+      "micro": {
+        "precision": 19.06,
+        "recall": 34.4,
+        "f1": 24.53,
+        "tp": 279,
+        "n_pred": 1464,
+        "n_gold": 811
+      },
+      "span_only": {
+        "precision": 29.1,
+        "recall": 52.53,
+        "f1": 37.45,
+        "tp": 426,
+        "n_pred": 1464,
+        "n_gold": 811
+      },
+      "per_type": {
+        "Generic": {
+          "precision": 19.39,
+          "recall": 12.93,
+          "f1": 15.51,
+          "tp": 19,
+          "n_pred": 98,
+          "n_gold": 147
+        },
+        "Material": {
+          "precision": 31.67,
+          "recall": 26.76,
+          "f1": 29.01,
+          "tp": 19,
+          "n_pred": 60,
+          "n_gold": 71
+        },
+        "Method": {
+          "precision": 29.53,
+          "recall": 26.39,
+          "f1": 27.87,
+          "tp": 57,
+          "n_pred": 193,
+          "n_gold": 216
+        },
+        "Metric": {
+          "precision": 30.56,
+          "recall": 28.95,
+          "f1": 29.73,
+          "tp": 11,
+          "n_pred": 36,
+          "n_gold": 38
+        },
+        "OtherScientificTerm": {
+          "precision": 13.48,
+          "recall": 60.85,
+          "f1": 22.07,
+          "tp": 129,
+          "n_pred": 957,
+          "n_gold": 212
+        },
+        "Task": {
+          "precision": 36.67,
+          "recall": 34.65,
+          "f1": 35.63,
+          "tp": 44,
+          "n_pred": 120,
+          "n_gold": 127
+        }
+      }
+    },
+    "relations_gold_entities": {
+      "boundaries": {
+        "micro": {
+          "precision": 68.13,
+          "recall": 13.63,
+          "f1": 22.71,
+          "tp": 62,
+          "n_pred": 91,
+          "n_gold": 455
+        },
+        "per_type": {
+          "COMPARE": {
+            "precision": 100.0,
+            "recall": 6.9,
+            "f1": 12.9,
+            "tp": 2,
+            "n_pred": 2,
+            "n_gold": 29
+          },
+          "CONJUNCTION": {
+            "precision": 80.0,
+            "recall": 54.24,
+            "f1": 64.65,
+            "tp": 32,
+            "n_pred": 40,
+            "n_gold": 59
+          },
+          "EVALUATE-FOR": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 3,
+            "n_gold": 50
+          },
+          "FEATURE-OF": {
+            "precision": 13.33,
+            "recall": 6.25,
+            "f1": 8.51,
+            "tp": 2,
+            "n_pred": 15,
+            "n_gold": 32
+          },
+          "HYPONYM-OF": {
+            "precision": 66.67,
+            "recall": 4.55,
+            "f1": 8.51,
+            "tp": 2,
+            "n_pred": 3,
+            "n_gold": 44
+          },
+          "PART-OF": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 0,
+            "n_gold": 27
+          },
+          "USED-FOR": {
+            "precision": 85.71,
+            "recall": 11.21,
+            "f1": 19.83,
+            "tp": 24,
+            "n_pred": 28,
+            "n_gold": 214
+          }
+        }
+      },
+      "strict": {
+        "micro": {
+          "precision": 68.13,
+          "recall": 13.63,
+          "f1": 22.71,
+          "tp": 62,
+          "n_pred": 91,
+          "n_gold": 455
+        },
+        "per_type": {
+          "COMPARE": {
+            "precision": 100.0,
+            "recall": 6.9,
+            "f1": 12.9,
+            "tp": 2,
+            "n_pred": 2,
+            "n_gold": 29
+          },
+          "CONJUNCTION": {
+            "precision": 80.0,
+            "recall": 54.24,
+            "f1": 64.65,
+            "tp": 32,
+            "n_pred": 40,
+            "n_gold": 59
+          },
+          "EVALUATE-FOR": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 3,
+            "n_gold": 50
+          },
+          "FEATURE-OF": {
+            "precision": 13.33,
+            "recall": 6.25,
+            "f1": 8.51,
+            "tp": 2,
+            "n_pred": 15,
+            "n_gold": 32
+          },
+          "HYPONYM-OF": {
+            "precision": 66.67,
+            "recall": 4.55,
+            "f1": 8.51,
+            "tp": 2,
+            "n_pred": 3,
+            "n_gold": 44
+          },
+          "PART-OF": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 0,
+            "n_gold": 27
+          },
+          "USED-FOR": {
+            "precision": 85.71,
+            "recall": 11.21,
+            "f1": 19.83,
+            "tp": 24,
+            "n_pred": 28,
+            "n_gold": 214
+          }
+        }
+      }
+    },
+    "relations_predicted_entities": {
+      "boundaries": {
+        "micro": {
+          "precision": 5.42,
+          "recall": 3.52,
+          "f1": 4.27,
+          "tp": 16,
+          "n_pred": 295,
+          "n_gold": 455
+        },
+        "per_type": {
+          "COMPARE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 3,
+            "n_gold": 29
+          },
+          "CONJUNCTION": {
+            "precision": 18.31,
+            "recall": 22.03,
+            "f1": 20.0,
+            "tp": 13,
+            "n_pred": 71,
+            "n_gold": 59
+          },
+          "EVALUATE-FOR": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 4,
+            "n_gold": 50
+          },
+          "FEATURE-OF": {
+            "precision": 0.66,
+            "recall": 3.12,
+            "f1": 1.09,
+            "tp": 1,
+            "n_pred": 152,
+            "n_gold": 32
+          },
+          "HYPONYM-OF": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 9,
+            "n_gold": 44
+          },
+          "PART-OF": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 1,
+            "n_gold": 27
+          },
+          "USED-FOR": {
+            "precision": 3.64,
+            "recall": 0.93,
+            "f1": 1.49,
+            "tp": 2,
+            "n_pred": 55,
+            "n_gold": 214
+          }
+        }
+      },
+      "strict": {
+        "micro": {
+          "precision": 4.41,
+          "recall": 2.86,
+          "f1": 3.47,
+          "tp": 13,
+          "n_pred": 295,
+          "n_gold": 455
+        },
+        "per_type": {
+          "COMPARE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 3,
+            "n_gold": 29
+          },
+          "CONJUNCTION": {
+            "precision": 16.9,
+            "recall": 20.34,
+            "f1": 18.46,
+            "tp": 12,
+            "n_pred": 71,
+            "n_gold": 59
+          },
+          "EVALUATE-FOR": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 4,
+            "n_gold": 50
+          },
+          "FEATURE-OF": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 152,
+            "n_gold": 32
+          },
+          "HYPONYM-OF": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 9,
+            "n_gold": 44
+          },
+          "PART-OF": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 1,
+            "n_gold": 27
+          },
+          "USED-FOR": {
+            "precision": 1.82,
+            "recall": 0.47,
+            "f1": 0.74,
+            "tp": 1,
+            "n_pred": 55,
+            "n_gold": 214
+          }
+        }
+      }
+    }
+  },
+  "test": {
+    "ner": {
+      "micro": {
+        "precision": 21.03,
+        "recall": 37.45,
+        "f1": 26.94,
+        "tp": 631,
+        "n_pred": 3000,
+        "n_gold": 1685
+      },
+      "span_only": {
+        "precision": 33.63,
+        "recall": 59.88,
+        "f1": 43.07,
+        "tp": 1009,
+        "n_pred": 3000,
+        "n_gold": 1685
+      },
+      "per_type": {
+        "Generic": {
+          "precision": 19.37,
+          "recall": 15.35,
+          "f1": 17.13,
+          "tp": 37,
+          "n_pred": 191,
+          "n_gold": 241
+        },
+        "Material": {
+          "precision": 41.43,
+          "recall": 36.71,
+          "f1": 38.93,
+          "tp": 58,
+          "n_pred": 140,
+          "n_gold": 158
+        },
+        "Method": {
+          "precision": 34.64,
+          "recall": 24.65,
+          "f1": 28.8,
+          "tp": 106,
+          "n_pred": 306,
+          "n_gold": 430
+        },
+        "Metric": {
+          "precision": 28.3,
+          "recall": 21.13,
+          "f1": 24.19,
+          "tp": 15,
+          "n_pred": 53,
+          "n_gold": 71
+        },
+        "OtherScientificTerm": {
+          "precision": 16.49,
+          "recall": 66.67,
+          "f1": 26.44,
+          "tp": 348,
+          "n_pred": 2110,
+          "n_gold": 522
+        },
+        "Task": {
+          "precision": 33.5,
+          "recall": 25.48,
+          "f1": 28.94,
+          "tp": 67,
+          "n_pred": 200,
+          "n_gold": 263
+        }
+      }
+    },
+    "relations_gold_entities": {
+      "boundaries": {
+        "micro": {
+          "precision": 67.65,
+          "recall": 16.53,
+          "f1": 26.57,
+          "tp": 161,
+          "n_pred": 238,
+          "n_gold": 974
+        },
+        "per_type": {
+          "COMPARE": {
+            "precision": 100.0,
+            "recall": 5.26,
+            "f1": 10.0,
+            "tp": 2,
+            "n_pred": 2,
+            "n_gold": 38
+          },
+          "CONJUNCTION": {
+            "precision": 75.25,
+            "recall": 61.79,
+            "f1": 67.86,
+            "tp": 76,
+            "n_pred": 101,
+            "n_gold": 123
+          },
+          "EVALUATE-FOR": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 0,
+            "n_gold": 91
+          },
+          "FEATURE-OF": {
+            "precision": 17.14,
+            "recall": 10.17,
+            "f1": 12.77,
+            "tp": 6,
+            "n_pred": 35,
+            "n_gold": 59
+          },
+          "HYPONYM-OF": {
+            "precision": 85.71,
+            "recall": 8.96,
+            "f1": 16.22,
+            "tp": 6,
+            "n_pred": 7,
+            "n_gold": 67
+          },
+          "PART-OF": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 0,
+            "n_gold": 63
+          },
+          "USED-FOR": {
+            "precision": 76.34,
+            "recall": 13.32,
+            "f1": 22.68,
+            "tp": 71,
+            "n_pred": 93,
+            "n_gold": 533
+          }
+        }
+      },
+      "strict": {
+        "micro": {
+          "precision": 67.65,
+          "recall": 16.53,
+          "f1": 26.57,
+          "tp": 161,
+          "n_pred": 238,
+          "n_gold": 974
+        },
+        "per_type": {
+          "COMPARE": {
+            "precision": 100.0,
+            "recall": 5.26,
+            "f1": 10.0,
+            "tp": 2,
+            "n_pred": 2,
+            "n_gold": 38
+          },
+          "CONJUNCTION": {
+            "precision": 75.25,
+            "recall": 61.79,
+            "f1": 67.86,
+            "tp": 76,
+            "n_pred": 101,
+            "n_gold": 123
+          },
+          "EVALUATE-FOR": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 0,
+            "n_gold": 91
+          },
+          "FEATURE-OF": {
+            "precision": 17.14,
+            "recall": 10.17,
+            "f1": 12.77,
+            "tp": 6,
+            "n_pred": 35,
+            "n_gold": 59
+          },
+          "HYPONYM-OF": {
+            "precision": 85.71,
+            "recall": 8.96,
+            "f1": 16.22,
+            "tp": 6,
+            "n_pred": 7,
+            "n_gold": 67
+          },
+          "PART-OF": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 0,
+            "n_gold": 63
+          },
+          "USED-FOR": {
+            "precision": 76.34,
+            "recall": 13.32,
+            "f1": 22.68,
+            "tp": 71,
+            "n_pred": 93,
+            "n_gold": 533
+          }
+        }
+      }
+    },
+    "relations_predicted_entities": {
+      "boundaries": {
+        "micro": {
+          "precision": 12.22,
+          "recall": 8.32,
+          "f1": 9.9,
+          "tp": 81,
+          "n_pred": 663,
+          "n_gold": 974
+        },
+        "per_type": {
+          "COMPARE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 1,
+            "n_gold": 38
+          },
+          "CONJUNCTION": {
+            "precision": 27.16,
+            "recall": 35.77,
+            "f1": 30.88,
+            "tp": 44,
+            "n_pred": 162,
+            "n_gold": 123
+          },
+          "EVALUATE-FOR": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 5,
+            "n_gold": 91
+          },
+          "FEATURE-OF": {
+            "precision": 1.76,
+            "recall": 10.17,
+            "f1": 3.01,
+            "tp": 6,
+            "n_pred": 340,
+            "n_gold": 59
+          },
+          "HYPONYM-OF": {
+            "precision": 15.38,
+            "recall": 2.99,
+            "f1": 5.0,
+            "tp": 2,
+            "n_pred": 13,
+            "n_gold": 67
+          },
+          "PART-OF": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 1,
+            "n_gold": 63
+          },
+          "USED-FOR": {
+            "precision": 20.57,
+            "recall": 5.44,
+            "f1": 8.61,
+            "tp": 29,
+            "n_pred": 141,
+            "n_gold": 533
+          }
+        }
+      },
+      "strict": {
+        "micro": {
+          "precision": 6.18,
+          "recall": 4.21,
+          "f1": 5.01,
+          "tp": 41,
+          "n_pred": 663,
+          "n_gold": 974
+        },
+        "per_type": {
+          "COMPARE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 1,
+            "n_gold": 38
+          },
+          "CONJUNCTION": {
+            "precision": 19.75,
+            "recall": 26.02,
+            "f1": 22.46,
+            "tp": 32,
+            "n_pred": 162,
+            "n_gold": 123
+          },
+          "EVALUATE-FOR": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 5,
+            "n_gold": 91
+          },
+          "FEATURE-OF": {
+            "precision": 0.59,
+            "recall": 3.39,
+            "f1": 1.0,
+            "tp": 2,
+            "n_pred": 340,
+            "n_gold": 59
+          },
+          "HYPONYM-OF": {
+            "precision": 7.69,
+            "recall": 1.49,
+            "f1": 2.5,
+            "tp": 1,
+            "n_pred": 13,
+            "n_gold": 67
+          },
+          "PART-OF": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "tp": 0,
+            "n_pred": 1,
+            "n_gold": 63
+          },
+          "USED-FOR": {
+            "precision": 4.26,
+            "recall": 1.13,
+            "f1": 1.78,
+            "tp": 6,
+            "n_pred": 141,
+            "n_gold": 533
+          }
+        }
+      }
+    }
+  }
+}

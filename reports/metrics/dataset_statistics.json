@@ -1,0 +1,148 @@
+{
+  "train": {
+    "documents": 350,
+    "sentences": 1861,
+    "tokens": 45412,
+    "entities": 5598,
+    "relations": 3219,
+    "coreference_clusters": 720,
+    "entity_types": {
+      "Generic": 950,
+      "Material": 542,
+      "Method": 1445,
+      "Metric": 231,
+      "OtherScientificTerm": 1536,
+      "Task": 894
+    },
+    "relation_types": {
+      "COMPARE": 166,
+      "CONJUNCTION": 400,
+      "EVALUATE-FOR": 313,
+      "FEATURE-OF": 173,
+      "HYPONYM-OF": 298,
+      "PART-OF": 179,
+      "USED-FOR": 1690
+    },
+    "max_entity_length": 13,
+    "entity_length_histogram": {
+      "1": 1771,
+      "2": 2029,
+      "3": 907,
+      "4": 412,
+      "5": 220,
+      "6": 128,
+      "7": 64,
+      "8": 26,
+      "9": 22,
+      "10": 6,
+      "11": 5,
+      "12": 7,
+      "13": 1
+    },
+    "entities_within_8_tokens_pct": 99.27,
+    "overlapping_entity_pairs": {
+      "nested": 61
+    },
+    "sentences_with_overlapping_entities": 51,
+    "relations_with_head_after_tail": 1408,
+    "self_relations": 0
+  },
+  "dev": {
+    "documents": 50,
+    "sentences": 275,
+    "tokens": 6521,
+    "entities": 811,
+    "relations": 455,
+    "coreference_clusters": 100,
+    "entity_types": {
+      "Generic": 147,
+      "Material": 71,
+      "Method": 216,
+      "Metric": 38,
+      "OtherScientificTerm": 212,
+      "Task": 127
+    },
+    "relation_types": {
+      "COMPARE": 29,
+      "CONJUNCTION": 59,
+      "EVALUATE-FOR": 50,
+      "FEATURE-OF": 32,
+      "HYPONYM-OF": 44,
+      "PART-OF": 27,
+      "USED-FOR": 214
+    },
+    "max_entity_length": 12,
+    "entity_length_histogram": {
+      "1": 256,
+      "2": 275,
+      "3": 138,
+      "4": 66,
+      "5": 31,
+      "6": 16,
+      "7": 16,
+      "8": 8,
+      "10": 2,
+      "11": 1,
+      "12": 2
+    },
+    "entities_within_8_tokens_pct": 99.38,
+    "overlapping_entity_pairs": {
+      "nested": 7
+    },
+    "sentences_with_overlapping_entities": 7,
+    "relations_with_head_after_tail": 197,
+    "self_relations": 0
+  },
+  "test": {
+    "documents": 100,
+    "sentences": 551,
+    "tokens": 13401,
+    "entities": 1685,
+    "relations": 974,
+    "coreference_clusters": 195,
+    "entity_types": {
+      "Generic": 241,
+      "Material": 158,
+      "Method": 430,
+      "Metric": 71,
+      "OtherScientificTerm": 522,
+      "Task": 263
+    },
+    "relation_types": {
+      "COMPARE": 38,
+      "CONJUNCTION": 123,
+      "EVALUATE-FOR": 91,
+      "FEATURE-OF": 59,
+      "HYPONYM-OF": 67,
+      "PART-OF": 63,
+      "USED-FOR": 533
+    },
+    "max_entity_length": 13,
+    "entity_length_histogram": {
+      "1": 506,
+      "2": 635,
+      "3": 280,
+      "4": 119,
+      "5": 66,
+      "6": 36,
+      "7": 21,
+      "8": 11,
+      "9": 5,
+      "10": 3,
+      "11": 2,
+      "13": 1
+    },
+    "entities_within_8_tokens_pct": 99.35,
+    "overlapping_entity_pairs": {
+      "nested": 20
+    },
+    "sentences_with_overlapping_entities": 17,
+    "relations_with_head_after_tail": 403,
+    "self_relations": 0
+  },
+  "split_document_overlap": {
+    "train-dev": 0,
+    "train-test": 0,
+    "dev-test": 0
+  }
+}

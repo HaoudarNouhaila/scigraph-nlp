@@ -1,0 +1,19 @@
+# Span-based SciBERT NER on SciERC. Values mirror scigraph.training.train_ner.DEFAULTS.
+data_dir: data/processed
+output_dir: outputs/ner
+encoder_name: allenai/scibert_scivocab_uncased
+max_span_length: 8        # covers 99.3% of gold entities (see reports/metrics/dataset_statistics.json)
+context_window: 100       # subword budget for neighbouring sentences
+context_words: 60
+max_seq_length: 256
+epochs: 15
+batch_size: 16
+encoder_lr: 1.0e-5
+head_lr: 5.0e-4
+warmup_ratio: 0.1
+weight_decay: 0.01
+grad_clip: 1.0
+seed: 42
+fp16: true
+save_every: 0
+allow_overlap: true       # keep nested predictions

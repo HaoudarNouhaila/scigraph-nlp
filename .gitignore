@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Data and model artefacts (downloaded or produced locally)
+data/raw/
+data/processed/
+data/interim/
+outputs/
+checkpoints/
+models/
+*.pt
+*.bin
+*.safetensors
+kaggle_outputs/
+
+# Neo4j local install and data
+neo4j/
+
+# Environment
+.env
+*.log
+.DS_Store
+Thumbs.db

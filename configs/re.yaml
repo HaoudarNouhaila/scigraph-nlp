@@ -1,0 +1,18 @@
+# SciBERT relation classifier with typed entity markers. Mirrors train_re.DEFAULTS.
+data_dir: data/processed
+output_dir: outputs/re
+ner_predictions_dir: outputs/ner   # Experiment B uses outputs/ner/predictions_{dev,test}.jsonl
+encoder_name: allenai/scibert_scivocab_uncased
+max_seq_length: 256
+epochs: 10
+batch_size: 32
+eval_batch_size: 64
+encoder_lr: 2.0e-5
+head_lr: 1.0e-4
+warmup_ratio: 0.1
+weight_decay: 0.01
+grad_clip: 1.0
+seed: 42
+fp16: true
+save_every: 1000
+negative_ratio: null
