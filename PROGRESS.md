@@ -1,6 +1,6 @@
 # Progress
 
-Status as of 2026-10-16. Only work that was actually executed is listed as done; every
+Status as of 2026-10-17. Published at https://github.com/HaoudarNouhaila/scigraph-nlp. Only work that was actually executed is listed as done; every
 number refers to a file under `reports/`.
 
 ## Implemented and verified
@@ -25,14 +25,15 @@ number refers to a file under `reports/`.
 | Streamlit app, six pages | screenshots in `docs/images/` captured from the running app |
 | Evaluation notebook | `notebooks/04_evaluation.ipynb` (executed) |
 | Performance measurements | `reports/metrics/performance.json` |
+| Continuous integration (Ruff, 53 tests with a Neo4j service, Docker build) | GitHub Actions, passing on `main` since 2026-10-17 |
 
 ## Written but not executed
 
 * Notebooks 02 and 03 on a GPU (Kaggle or Colab): remote GPU use was declined; the same
   training code was run locally through `scripts/train_cpu.sh`.
 * GPU configurations `configs/ner.yaml` and `configs/re.yaml`.
-* Docker image and `docker-compose.yml`: Docker is not installed on the development machine.
-* GitHub Actions workflow: runs once the repository is pushed.
+* `docker-compose.yml`: Docker is not installed on the development machine. The image itself
+  is built by CI, but no container has been started from it.
 
 ## Results (test split, single run)
 
@@ -55,13 +56,13 @@ number refers to a file under `reports/`.
 * `curl` fails TLS verification on this machine (intercepting proxy); downloads use
   PowerShell or Python without disabling verification.
 * SciERC has no stated licence, so the data is not redistributed.
+* The first two CI runs failed on undeclared dependencies (`python-multipart`, `scipy`) that
+  were installed transitively on the development machine; both are now declared.
 * The in-app browser pane does not render when the window is hidden; screenshots are taken
   with headless Chrome through the DevTools protocol instead.
 
 ## Remaining
 
-* Push to GitHub after explicit authorisation (account and visibility to confirm), then
-  check that the CI workflow (lint, tests with a Neo4j service, Docker build) passes.
 * Optional: run notebooks 02 and 03 on a GPU with the full configuration and a few seeds.
 * Optional: publish the trained weights (about 420 MB each) as a release or model hub
   entry; they are not committed.

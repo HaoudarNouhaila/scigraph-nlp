@@ -2,14 +2,13 @@
 
 Three bullet points for a one-page CV. Every number is a measured result on the official
 SciERC test split (see README, section Results), and every technology listed was used and
-run. Docker and GitHub Actions are not listed: the files exist but the image has not been
-built and the workflow has not run yet.
+run. Docker is not listed: the image is built in CI but no container was run from it.
 
 ## English
 
 **SciGraph-NLP: automated scientific knowledge graph construction** (personal project, 2026)
 Python, PyTorch, Hugging Face Transformers, SciBERT, spaCy, Neo4j, Cypher, RDFLib, NetworkX,
-FastAPI, Streamlit, pytest
+FastAPI, Streamlit, pytest, GitHub Actions
 
 - Fine-tuned SciBERT for span-based named entity recognition (nested spans) and for
   directional relation extraction with typed entity markers on SciERC; reached 67.0 micro-F1
@@ -21,14 +20,14 @@ FastAPI, Streamlit, pytest
   Turtle export, SPARQL queries and SHACL validation.
 - Exposed the graph through whitelisted parameterised Cypher queries, multi-hop path search
   and NetworkX analytics in a FastAPI service and a Streamlit interface; 250 of 250
-  reference query checks passed, with unit and integration tests.
+  reference query checks passed, with unit and integration tests run in CI.
 
 ## Français
 
 **SciGraph-NLP : construction automatique d'un graphe de connaissances scientifiques**
 (projet personnel, 2026)
 Python, PyTorch, Hugging Face Transformers, SciBERT, spaCy, Neo4j, Cypher, RDFLib, NetworkX,
-FastAPI, Streamlit, pytest
+FastAPI, Streamlit, pytest, GitHub Actions
 
 - Fine-tuning de SciBERT pour la reconnaissance d'entités par classification de spans
   (entités imbriquées) et pour l'extraction de relations orientées avec marqueurs d'entités
@@ -41,4 +40,4 @@ FastAPI, Streamlit, pytest
   RDFS/OWL avec export Turtle, requêtes SPARQL et validation SHACL.
 - Exploration du graphe par requêtes Cypher paramétrées en liste blanche, recherche de
   chemins multi-sauts et analyses NetworkX via une API FastAPI et une interface Streamlit ;
-  250 cas de référence de requêtes validés sur 250, avec tests unitaires et d'intégration.
+  250 cas de référence de requêtes validés sur 250, avec tests unitaires et d'intégration exécutés en CI.
