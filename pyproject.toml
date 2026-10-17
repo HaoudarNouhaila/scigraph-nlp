@@ -21,6 +21,7 @@ dependencies = [
     "neo4j>=5.20",
     "rdflib>=7.0",
     "networkx>=3.2",
+    "scipy>=1.10",  # required by networkx.pagerank
     "fastapi>=0.110",
     "uvicorn>=0.29",
     "pydantic>=2.6",
