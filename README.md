@@ -1,633 +1,334 @@
+
 # SciGraph-NLP
 
-**Automated Scientific Knowledge Graph Construction using NLP and Deep Learning**
+**Extracting scientific knowledge from text, one relation at a time.**
 
-SciGraph-NLP extracts scientific entities and relations from abstracts and papers with
-fine-tuned SciBERT models, resolves duplicate entities, and stores the resulting facts in a
-Neo4j knowledge graph where every edge keeps its source sentence, confidence, model version
-and validation status. The graph can be explored through parameterised Cypher queries,
-multi-hop paths and NetworkX analytics, exported to RDF, and used through a FastAPI service
-and a Streamlit interface.
+I built SciGraph-NLP to explore a question that kept coming up while I was working with scientific papers: *how can I move beyond finding information in an abstract and actually connect it to the rest of the literature?*
 
-## Contents
+The project takes scientific text, identifies entities and relations with fine-tuned SciBERT models, and turns the predictions into a knowledge graph in Neo4j. I wanted the graph to be more than a collection of nodes and edges, so each extracted relation also keeps the sentence it came from, its confidence score, the model version, and its review status.
 
-1. [Project Overview](#1-project-overview)
-2. [Research Motivation](#2-research-motivation)
-3. [Problem Definition](#3-problem-definition)
-4. [Dataset](#4-dataset)
-5. [System Architecture](#5-system-architecture)
-6. [Data Preprocessing](#6-data-preprocessing)
-7. [Named Entity Recognition](#7-named-entity-recognition)
-8. [Relation Extraction](#8-relation-extraction)
-9. [Knowledge Graph Construction](#9-knowledge-graph-construction)
-10. [Knowledge Representation](#10-knowledge-representation)
-11. [Graph Querying](#11-graph-querying)
-12. [Experimental Setup](#12-experimental-setup)
-13. [Results](#13-results)
-14. [Installation](#14-installation)
-15. [Training](#15-training)
-16. [Inference](#16-inference)
-17. [Application Demo](#17-application-demo)
-18. [Reproducibility](#18-reproducibility)
-19. [Limitations](#19-limitations)
-20. [Future Work](#20-future-work)
-21. [References](#21-references)
+The repository includes the NLP pipeline, graph construction and exploration tools, a FastAPI service, and a Streamlit application for working with the results.
 
-## 1. Project Overview
+![Knowledge graph exploration in SciGraph-NLP](docs/images/knowledge_graph.png)
 
-| Stage | Implementation |
-|---|---|
-| Entity recognition | Span classification on SciBERT, nested entities supported |
-| Relation extraction | SciBERT with typed entity markers, directional, with a no-relation class |
-| Baseline | spaCy noun chunks with lexical type rules and relation patterns |
-| Entity resolution | Type-aware normalised keys, acronym resolution, candidate-duplicate report |
-| Storage | Neo4j 5 (constraints, indexes, batched idempotent ingestion, provenance) |
-| Knowledge representation | RDFS/OWL ontology, Turtle export with RDFLib, SPARQL, SHACL |
-| Exploration | Named Cypher queries, bounded multi-hop paths, NetworkX centrality and communities |
-| Interfaces | FastAPI (validated inputs), Streamlit (six pages), CLI |
-| Engineering | pytest, Ruff, Docker, docker-compose with Neo4j, GitHub Actions |
+## What I built
 
-## 2. Research Motivation
+The project has four main parts:
 
-The scientific literature grows faster than anyone can read it, and the knowledge it contains
-(which method addresses which task, on which dataset, measured with which metric) is locked
-in unstructured text. Turning this text into a graph of typed, linked and traceable facts
-makes it searchable by structure: one can ask which methods have been used for a task, how
-two concepts are connected, or which documents support a claim. Doing so automatically
-requires reliable information extraction, and doing so *usefully* requires that the graph
-keeps track of where each fact came from and how certain it is.
+1. **Scientific information extraction.** I fine-tuned SciBERT for named entity recognition (NER) and relation extraction on the SciERC dataset.
+2. **Entity resolution and graph construction.** I normalise entity mentions, resolve document-level acronyms, form subject–relation–object triples, and store them in Neo4j with their supporting evidence.
+3. **Knowledge representation and exploration.** I added Cypher queries, graph analytics with NetworkX, an RDF/OWL representation, SPARQL queries, and SHACL validation.
+4. **An interface for inspecting the results.** The API and Streamlit app let me analyse a document, inspect extracted relations, explore the graph, trace a fact to its source, and examine evaluation results.
 
-## 3. Problem Definition
+### Results at a glance
 
-Input: a scientific text (abstract or PDF with a text layer).
-Output: a set of triples `(subject, predicate, object)` over typed entities, inserted into a
-graph with provenance.
+| Evaluation | Result | What it measures |
+|---|---:|---|
+| Named entity recognition | **67.04% micro-F1** | Exact span and entity type on the SciERC test set |
+| Relation extraction | **70.26% micro-F1** | Relation classification using reference (gold) entities |
+| End-to-end relation extraction | **47.67% micro-F1** | Correct relation and entity boundaries using predicted entities |
+| End-to-end relation extraction, strict | **34.92% micro-F1** | Correct boundaries, relation, and entity types |
+| Knowledge graph | **1,073 predicted triples** | Graph built from the 100 test abstracts |
+| Evidence coverage | **100%** | Predicted triples associated with a source sentence |
 
-1. **Entity recognition.** Find all spans of the text that denote scientific entities and
-   assign each one of six types: Task, Method, Metric, Material, OtherScientificTerm, Generic.
-   Spans may be nested.
-2. **Relation extraction.** For every ordered pair of entities in a sentence, predict one of
-   USED-FOR, FEATURE-OF, HYPONYM-OF, PART-OF, COMPARE, CONJUNCTION, EVALUATE-FOR, or no
-   relation.
-3. **Graph construction.** Normalise and resolve entity mentions, aggregate triples, keep
-   evidence, and separate predicted from verified knowledge.
-4. **Exploitation.** Query, traverse and analyse the graph without presenting indirect
-   associations as established relations.
+These figures come from the saved experiment outputs in [`reports/metrics/`](reports/metrics/). I keep the gold-entity and end-to-end results separate because they answer different questions.
 
-The label inventory is that of SciERC; illustrative examples in this README are not
-annotations.
+## From an abstract to a knowledge graph
 
-## 4. Dataset
-
-SciERC (Luan et al., 2018): 500 AI abstracts with entities, relations and coreference.
-Official splits are used without modification. Full details, including the licence
-situation, are in [docs/DATASET.md](docs/DATASET.md).
-
-| | train | dev | test |
-|---|---:|---:|---:|
-| Documents | 350 | 50 | 100 |
-| Sentences | 1,861 | 275 | 551 |
-| Entities | 5,598 | 811 | 1,685 |
-| Relations | 3,219 | 455 | 974 |
-| Candidate entity pairs | 16,872 | 2,488 | 5,062 |
-
-* All relations are within one sentence; 81 % of candidate pairs carry no relation.
-* 99.3 % of entities span at most 8 tokens; 61 nested entity pairs in train, none crossing.
-* USED-FOR accounts for 52.5 % of training relations; Metric for 4.1 % of entities.
-* The release states no licence, so this repository does not redistribute it; a script
-  downloads it from the official page and checks its SHA-256.
-
-## 5. System Architecture
+The process starts with a scientific abstract or a PDF containing selectable text. After sentence splitting and token alignment, the two SciBERT models identify entities and classify relations. I then normalise mentions, create triples, preserve their evidence, and load the result into Neo4j.
 
 ```mermaid
 flowchart LR
-    subgraph Input
-        T[Text / abstract]
-        P[PDF] --> X[PyMuPDF extraction<br/>headers, references removed,<br/>page offsets]
-    end
-    T --> S[spaCy sentence split<br/>tokens + char offsets]
-    X --> S
-    S --> NER[Span NER<br/>SciBERT + span MLP]
-    NER --> RE[Relation classifier<br/>SciBERT + typed markers]
-    RE --> ER[Entity resolution<br/>normalised keys, acronyms]
-    ER --> TR[Triples + evidence<br/>score, page, model version]
-    TR --> NEO[(Neo4j<br/>predicted / verified)]
-    NEO --> INF[Rule inference<br/>:INFERRED edges]
-    NEO --> Q[Named Cypher queries<br/>multi-hop paths]
-    NEO --> NX[NetworkX analytics<br/>link hypotheses]
-    NEO --> RDF[RDFLib Turtle export<br/>SPARQL, SHACL]
-    Q --> API[FastAPI]
-    Q --> UI[Streamlit]
-    NX --> UI
+    A[Scientific abstract or PDF] --> B[Text extraction and preprocessing]
+    B --> C[SciBERT: entity recognition]
+    C --> D[SciBERT: relation extraction]
+    D --> E[Entity resolution and triples]
+    E --> F[(Neo4j knowledge graph)]
+    F --> G[Cypher queries and NetworkX]
+    F --> H[RDF / OWL / SPARQL / SHACL]
+    G --> I[FastAPI and Streamlit]
+    H --> I
 ```
 
-Source layout (details in [PROJECT_GUIDE.md](PROJECT_GUIDE.md)):
+For example, a `USED-FOR` relation connects a scientific method to the task it addresses. The graph can then answer questions such as *which methods are used for this task?* or *which paper supports this connection?*
 
-```
-src/scigraph/
-  data/          SciERC loading, validation, statistics
-  baseline/      spaCy rule baseline
-  models/        span NER, relation classifier, sub-word alignment
-  training/      resumable training loops
-  evaluation/    metrics
-  pipeline/      text and PDF ingestion, extractors, normalisation, graph builder
-  graph/         Neo4j store, queries, reasoning, analytics, RDF export
-  api/           FastAPI application
-  resources/     ontology and SHACL shapes
-app/             Streamlit interface
-configs/         training and graph settings
-scripts/         data, baseline, experiments, reports
-notebooks/       01-04, generated by scripts/build_notebooks.py
-tests/           unit and integration tests
+The latter matters to me as much as the former: without provenance, a predicted edge is difficult to interpret or review.
+
+### How I represent a fact
+
+```mermaid
+flowchart TD
+    D[Document] -->|HAS_MENTION| M1[Mention: method]
+    D -->|HAS_MENTION| M2[Mention: task]
+    M1 -->|REFERS_TO| E1[Entity: Method]
+    M2 -->|REFERS_TO| E2[Entity: Task]
+    E1 -->|"USED_FOR: score, status, source sentence"| E2
 ```
 
-## 6. Data Preprocessing
+In Neo4j, relations carry information such as the document, sentence, confidence, support count, model version, and status.
 
-* Document-level offsets (inclusive ends) are converted to sentence-local offsets; the
-  conversion raises an error on any span crossing a sentence, unknown label, or relation
-  whose argument is not an entity. None occur in the release.
-* Document keys are checked for overlap between splits (none).
-* Words are tokenised by WordPiece individually; the first and last sub-token of each word
-  are recorded so that spans are always defined on words, never on sub-tokens.
-* NER candidates: all spans of up to 8 words. 41 training entities (0.73 %) are longer and
-  therefore unreachable; they are reported, not dropped from evaluation.
-* RE candidates: all ordered pairs of distinct entities in a sentence. Symmetric gold
-  relations are added in both directions for training only.
-* New text: soft hyphens and hyphenated line breaks are repaired, sentences are split with
-  spaCy, and every token keeps its character offset in the document. Sentences longer than
-  120 tokens (tables, reference lists) are cut into chunks.
+I distinguish **predicted**, **verified**, and **inferred** knowledge rather than treating every graph connection as equally established. Any new inference is labelled separately from the facts used to produce it.
 
-## 7. Named Entity Recognition
+## The dataset and the models
 
-`src/scigraph/models/span_ner.py`
+I used [SciERC](https://nlp.cs.washington.edu/sciIE/), a corpus of 500 research abstracts annotated with scientific entities and relations. I kept the official train, development, and test splits.
 
-* Encoder: `allenai/scibert_scivocab_uncased`.
-* Span representation: `[h_first(i); h_last(j); w(j-i+1)]`, width embedding of size 150.
-* Classifier: two hidden layers of 150 units with ReLU and dropout 0.2, 7 outputs.
-* Loss: cross-entropy over all enumerated spans.
-* Decoding: every span with a non-`O` arg-max is kept, so nested entities can be output; a
-  greedy non-overlapping decoder is available.
-* Optimisation: AdamW, encoder learning rate 3e-5, head 5e-4, linear warm-up (10 %) and
-  decay, batch size 16, gradient clipping 1.0, weight decay 0.01, seed 42.
-
-Why not BIO tagging: SciERC contains nested entities, and a token-level tagger can encode
-only one label per token. Span classification represents them natively at a cost that is
-linear in sentence length for a fixed maximum width.
-
-## 8. Relation Extraction
-
-`src/scigraph/models/relation.py`
-
-* Input: the sentence with typed markers around the candidate pair, for example
-  `[CLS] we use <S:Method> crf </S:Method> for <O:Task> ner </O:Task> . [SEP]`.
-* Representation: concatenated encoder states of the two opening markers, layer
-  normalisation, linear layer over 8 classes (7 relations + `NO-RELATION`).
-* Direction: (A, B) and (B, A) are distinct instances. COMPARE and CONJUNCTION are
-  symmetric: trained in both directions, merged at inference.
-* Negatives: the CPU configuration samples 1.5 negative pairs per positive, redrawn every
-  epoch; evaluation scores all pairs.
-* Optimisation: AdamW, encoder 3e-5, head 1e-4, batch size 32, 5 epochs (CPU configuration).
-
-Experiment A uses gold entities as candidates, Experiment B the NER predictions. Relations
-are scored with two criteria: *boundaries* (argument spans and label correct) and *strict*
-(argument types also correct).
-
-## 9. Knowledge Graph Construction
-
-* **Normalisation**: NFKC, lower case, hyphen spacing, leading determiners removed, last word
-  singularised, trailing acronym definition removed when it matches the long form.
-* **Entity resolution**: same type and same normalised key, nothing else. Acronyms defined in
-  a document resolve to their long form in that document. Generic mentions are never merged;
-  bare head nouns ("method", "model") merge only within a document. Same-type pairs with
-  token Jaccard >= 0.75 are listed as candidate duplicates for review, not merged.
-* **Triples**: aggregated per (head entity, relation, tail entity) with support (number of
-  documents), maximum score, and evidence (document, sentence, page, model version).
-* **Neo4j model**: `Document -HAS_MENTION-> Mention -REFERS_TO-> Entity`, and one
-  relationship type per SciERC relation between entities. Uniqueness constraints on all
-  identifiers, indexes on key, type, status, and a full-text index on names. Ingestion uses
-  `UNWIND` batches of 500 rows in managed transactions and is idempotent.
-* **Knowledge layers**: `predicted` (model output), `verified` (gold annotations or human
-  review through the API or UI), `:INFERRED` edges produced by named rules (hyponym and
-  part-of transitivity, conjunction symmetry) from verified premises, and *hypotheses*
-  (unlinked pairs ranked by shared neighbours) that are computed on demand and never stored.
-  A prediction never downgrades a verified edge.
-
-## 10. Knowledge Representation
-
-* Ontology `src/scigraph/resources/scigraph.ttl`: six classes under `sg:ScientificEntity`,
-  seven object properties (COMPARE and CONJUNCTION as `owl:SymmetricProperty`), disjointness
-  between Task, Method, Metric and Material, and an `sg:Assertion` class for reified facts.
-* Export: each fact becomes a direct triple (`sg:usedFor`, ...) and a reified assertion with
-  `sg:confidence`, `sg:support`, `sg:status` and `prov:wasDerivedFrom`.
-* SPARQL examples in `src/scigraph/graph/rdf_export.py` (methods used for tasks, metrics per
-  task, high-confidence assertions, two-hop chains).
-* SHACL shapes `src/scigraph/resources/shapes.ttl` check assertion structure, value ranges
-  and provenance; EVALUATE-FOR assertions whose subject is not a Metric or Material are
-  reported as warnings.
-
-Neo4j is the operational store because relationship properties and traversals are native
-there; RDF is the interchange format because it has global identifiers and standard
-semantics. The two are kept consistent by generating RDF from the graph, not maintaining two
-stores.
-
-## 11. Graph Querying
-
-All queries are named and parameterised (`src/scigraph/graph/queries.py`); free-form Cypher
-is not accepted. Parameters are validated for type, range, length and allowed values, and
-full-text input is Lucene-escaped.
-
-| Query | Question |
-|---|---|
-| `search_entities` | Which entities match this text? |
-| `entity_neighbors` | What is directly related to this entity? |
-| `methods_for_task`, `metrics_for_task`, `datasets_for_task` | Which methods, metrics, materials relate to a task? |
-| `concepts_for_method` | Which concepts are associated with a method? |
-| `relations_between` | How are two entities directly related? |
-| `relation_evidence`, `entity_provenance` | Which documents and sentences support this? |
-| `frequent_pairs`, `top_entities` | Which concepts are most frequently connected? |
-| `inferred_relations`, `review_queue`, `relation_statistics` | Inference layer, review, statistics |
-| `find_paths`, `khop_neighbourhood` | Multi-hop paths (1 to 5 hops) and neighbourhoods |
-
-Example (Cypher of `methods_for_task`):
-
-```cypher
-MATCH (m:Entity {type: 'Method'})-[r:USED_FOR]->(t:Entity {type: 'Task'})
-WHERE toLower(t.name) CONTAINS toLower($task) AND r.status IN $statuses
-RETURN m.name AS method, t.name AS task, r.score AS score, r.support AS support
-ORDER BY r.support DESC, r.score DESC LIMIT $limit
-```
-
-NetworkX (`src/scigraph/graph/analytics.py`) provides degree, PageRank and betweenness
-centrality, connected components, greedy-modularity communities, shortest paths, and
-Adamic-Adar link hypotheses.
-
-## 12. Experimental Setup
-
-| Experiment | Protocol | Script |
-|---|---|---|
-| 1. NER | Baseline vs SciBERT span model, test split, exact span and type match, micro and macro F1 | `run_baseline.py`, `train_ner` |
-| 2. RE | Relation classifier on gold entities (Experiment A), boundaries and strict criteria | `train_re` |
-| 3. End to end | Relations from predicted entities (Experiment B) | `train_re`, `predict_scierc.py` |
-| 4. Graph quality | Gold vs predicted graph of the 100 test documents after resolution: fact-level P/R/F1, duplicates, type signatures unseen in training, SHACL, provenance coverage | `evaluate_graph.py` |
-| 5. Graph querying | Cypher answers vs reference answers from gold annotations and NetworkX, latency | `evaluate_queries.py` |
-| 6. Performance | Inference and graph construction time on fixed inputs | `benchmark.py` |
-
-Model selection uses the dev split only; the test split is evaluated once with the best dev
-checkpoint. Hardware: CPU only (8 cores, 16 GB RAM, Windows 11, PyTorch 2.14 CPU build).
-
-<!-- RESULTS:START -->
-## 13. Results
-
-All numbers below were produced by the runs described in section 12 and are stored in
-`reports/metrics/`. They come from a single training run per model (seed 42) with the CPU
-configuration, so no variance estimate is available. Scores are on the official SciERC test
-split (100 abstracts, 551 sentences, 1,685 entities, 974 relations) with the best dev
-checkpoint. No comparison with published systems is claimed, because configuration and
-compute differ.
-
-### Experiment 1: named entity recognition
-
-Exact match of boundaries and type.
-
-| System | Precision | Recall | Micro-F1 | Macro-F1 |
+| Split | Abstracts | Sentences | Entities | Relations |
 |---|---:|---:|---:|---:|
-| Rule baseline (spaCy noun chunks + lexicons) | 21.03 | 37.45 | 26.94 | 27.41 |
-| SciBERT span classifier | 67.02 | 67.06 | **67.04** | 66.43 |
+| Train | 350 | 1,861 | 5,598 | 3,219 |
+| Development | 50 | 275 | 811 | 455 |
+| Test | 100 | 551 | 1,685 | 974 |
 
-* Dev micro-F1 of the selected checkpoint (epoch 10 of 10): 70.92.
-* Ignoring the type (boundaries only), test F1 is 79.15: about 12 points are lost to type
-  confusions, mostly OtherScientificTerm vs Method and Method vs Task.
-* Per type (test F1): Method 75.42, Generic 71.54, Metric 64.52, Task 63.36,
-  OtherScientificTerm 62.05, Material 61.69.
-* Nested entities: of the 20 nested gold pairs in test, 3 are recovered entirely. The model
-  outputs 81 overlapping pairs, of which 3 are fully correct. Decoding without overlap
-  (`scripts/ner_decoding_ablation.py`) gives 71.24 dev / 67.29 test micro-F1, against
-  70.92 / 67.04 for nested decoding. The difference is small for a single run; nested
-  decoding is kept as configured before evaluation, and the decoder is a setting in
-  `configs/graph.yaml`.
+The entity labels are `Task`, `Method`, `Metric`, `Material`, `OtherScientificTerm`, and `Generic`.
 
-![NER per type](reports/figures/ner_per_type.png)
+The relation labels are `USED-FOR`, `FEATURE-OF`, `HYPONYM-OF`, `PART-OF`, `COMPARE`, `CONJUNCTION`, and `EVALUATE-FOR`.
 
-### Experiment 2: relation extraction on gold entities (Experiment A)
+### 1. Named entity recognition
 
-| System | Precision | Recall | Micro-F1 | Macro-F1 |
-|---|---:|---:|---:|---:|
-| Rule baseline (lexical patterns) | 67.65 | 16.53 | 26.57 | 18.50 |
-| SciBERT typed-marker classifier | 67.29 | 73.51 | **70.26** | 67.07 |
+Instead of using a conventional BIO tagger, I treated NER as **span classification**.
 
-Dev micro-F1 of the selected checkpoint (epoch 4 of 5): 71.27. With gold entities the strict
-and boundaries criteria coincide.
+This allowed me to represent nested entities: the model considers spans of up to eight words and predicts an entity type or a non-entity label.
 
-| Relation | P | R | F1 | Gold |
-|---|---:|---:|---:|---:|
-| CONJUNCTION | 79.70 | 86.18 | 82.81 | 123 |
-| HYPONYM-OF | 75.95 | 89.55 | 82.19 | 67 |
-| COMPARE | 74.42 | 84.21 | 79.01 | 38 |
-| USED-FOR | 68.98 | 74.67 | 71.71 | 533 |
-| EVALUATE-FOR | 58.26 | 73.63 | 65.05 | 91 |
-| PART-OF | 61.11 | 34.92 | 44.44 | 63 |
-| FEATURE-OF | 38.27 | 52.54 | 44.29 | 59 |
+I used `allenai/scibert_scivocab_uncased` as the encoder and an MLP classifier over the span representation.
 
-Recall exceeds precision for most types, consistent with training on a subsample of
-negative pairs. The largest confusion is between USED-FOR and no relation in both directions
-(142 pairs without a relation predicted as USED-FOR, 98 USED-FOR pairs missed).
+Character offsets and WordPiece alignment are preserved so that extracted entities can be traced back to their source text.
 
-![Relation confusion](reports/figures/re_confusion.png)
+**NER results — exact span and type**
 
-### Experiment 3: end-to-end extraction (Experiment B)
+| Model | Precision | Recall | Micro-F1 |
+|---|---:|---:|---:|
+| Rule-based baseline | 21.03% | 37.45% | 26.94% |
+| Fine-tuned SciBERT | **67.02%** | **67.06%** | **67.04%** |
 
-Relations predicted on the entities predicted by the NER model.
+![NER scores by entity type](reports/figures/ner_per_type.png)
 
-| System | Criterion | Precision | Recall | Micro-F1 | Macro-F1 |
-|---|---|---:|---:|---:|---:|
-| Rule baseline | boundaries | 12.22 | 8.32 | 9.90 | 6.79 |
-| Rule baseline | strict | 6.18 | 4.21 | 5.01 | 3.96 |
-| SciBERT NER + RE | boundaries | 45.29 | 50.31 | **47.67** | 45.90 |
-| SciBERT NER + RE | strict | 33.18 | 36.86 | **34.92** | 35.28 |
+### 2. Relation extraction
 
-Error propagation: relation F1 drops from 70.26 with gold entities to 47.67 with predicted
-entities. Of the 974 gold test relations, 490 are found; 311 are missed because NER did not
-find one of the two arguments with exact boundaries, 108 because the pair was classified as
-no relation, 40 receive a wrong label and 25 the wrong direction (notebook
-`04_evaluation.ipynb`). The further drop from boundaries to strict (12.75 points) comes
-from argument type errors. Running the pipeline again from the saved models
-(`scripts/predict_scierc.py`) reproduces these scores exactly.
+For relation extraction, I used a second SciBERT model.
 
-### Experiment 4: knowledge graph quality
+It reads a sentence with typed markers around the candidate subject and object, then predicts one of the seven relation classes or `NO-RELATION`.
 
-Graphs of the 100 test documents built from gold annotations and from end-to-end
-predictions, after normalisation and entity resolution (`reports/metrics/graph_quality.json`).
+For example, the input makes the entity roles explicit:
 
-| | Gold graph | Predicted graph |
-|---|---:|---:|
-| Mentions / entities | 1,685 / 1,488 | 1,686 / 1,517 |
-| Entities linked across documents | 33 | 32 |
-| Triples | 970 | 1,073 |
-| Candidate duplicate pairs (reported, not merged) | 7 | 11 |
-| Self-loops | 0 | 0 |
-| Triples with evidence sentence | 100 % | 100 % |
-| SHACL violations / warnings | 0 / 18 | 0 / 27 |
+```text
+[S:Method] conditional random field [/S:Method]
+...
+[O:Task] named entity recognition [/O:Task]
+```
 
-* Document-level fact precision / recall / F1 of the predicted graph against the gold graph:
-  33.27 / 36.88 / 34.98 with entity types, 44.45 / 49.28 / 46.74 without. These are close to
-  the sentence-level strict and boundaries scores, as expected when entity resolution is
-  conservative.
-* 24 predicted triples (2.24 %) have a (head type, relation, tail type) signature never seen
-  in the training annotations, for example `Task HYPONYM-OF OtherScientificTerm`.
-* The 18 SHACL warnings on the gold graph are gold EVALUATE-FOR assertions whose subject is
-  neither a Metric nor a Material: the constraint reflects the guideline, not the data.
+I evaluated the relation classifier in two settings.
 
-### Experiment 5: graph querying
+First, I provided the reference entities to measure relation classification on its own.
 
-The gold test graph was loaded into Neo4j 5.26 and each query compared with reference
-answers derived from the gold annotations and from NetworkX (`scripts/evaluate_queries.py`,
-50 random cases per check, seed 13).
+Then I ran it on the entities predicted by the NER model to evaluate the complete extraction pipeline.
 
-| Check | Passed | Median / p95 latency (ms) |
-|---|---:|---:|
-| `methods_for_task` returns the annotated method | 50 / 50 | 8.1 / 20.1 |
-| `entity_neighbors` equals the NetworkX neighbourhood | 50 / 50 | 6.4 / 9.4 |
-| Shortest path length equals NetworkX (2 to 4 hops) | 50 / 50 | 5.9 / 6.8 |
-| No path between different components | 50 / 50 | - |
-| `relation_evidence` returns the source documents | 50 / 50 | 7.9 / 11.1 |
+| Setting | Precision | Recall | Micro-F1 |
+|---|---:|---:|---:|
+| Rule baseline, reference entities | 67.65% | 16.53% | 26.57% |
+| SciBERT, reference entities | **67.29%** | **73.51%** | **70.26%** |
+| SciBERT pipeline, predicted entities (boundaries) | 45.29% | 50.31% | **47.67%** |
+| SciBERT pipeline, predicted entities (strict) | 33.18% | 36.86% | **34.92%** |
 
-Latency is client-side on a local single-instance database holding about 1,500 entities; it
-says nothing about behaviour at scale.
+![Relation extraction confusion matrix](reports/figures/re_confusion.png)
 
-### Experiment 6: performance
+This comparison was useful: it showed me exactly why a strong relation classifier does not automatically give the same result when deployed after an entity recogniser.
 
-CPU only (8 logical cores, PyTorch using 4 threads), median of 3 runs, model loading
-excluded (`reports/metrics/performance.json`).
-
-| Step | Input | Time |
-|---|---|---:|
-| NER | 551 test sentences | 42.3 s (76.8 ms per sentence) |
-| RE | 5,238 candidate pairs | 335.7 s (64.1 ms per pair) |
-| Full pipeline | one sample abstract (4 sentences) | 1.82 s |
-| Graph construction | test predictions (1,517 entities, 1,073 triples) | 0.23 s |
-| Neo4j ingestion | same graph, 100 documents, 1,686 mentions | 1.08 s |
-
-Relation extraction dominates because each candidate pair is encoded separately (one
-encoder pass per pair). Training took about 1 h 54 min for NER (10 epochs) and 6 h 15 min
-for RE (5 epochs); RE training was slowed by memory pressure on the machine.
+I used both evaluations when analysing the graph built from model predictions.
 
 ### Training curves
 
-![NER training](reports/figures/ner_training.png)
-![RE training](reports/figures/re_training.png)
-<!-- RESULTS:END -->
+The training logs and checkpoints are saved with the experiment outputs.
 
-## 14. Installation
+These are the curves generated from the recorded runs:
 
-Tested on Windows 11 with Python 3.11 (Git Bash commands shown; on Linux or macOS use
-`.venv/bin/python`).
-
-```bash
-py -3.11 -m venv .venv
-```
-
-```bash
-.venv/Scripts/python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-```
-
-```bash
-.venv/Scripts/python -m pip install -e ".[ui,shacl,dev]"
-```
-
-```bash
-.venv/Scripts/python -m spacy download en_core_web_sm
-```
-
-Data (downloads about 695 MB and keeps the three JSON files):
-
-```bash
-.venv/Scripts/python scripts/download_scierc.py --out data/raw/scierc
-```
-
-```bash
-.venv/Scripts/python scripts/prepare_data.py
-```
-
-### Neo4j
-
-Any Neo4j 5 instance works. Without Docker, the Community Edition archive runs with Java 21:
-download `neo4j-community-5.26.12-windows.zip` from https://neo4j.com/deployment-center/,
-unzip it into `neo4j/` (git-ignored), set a password and start it:
-
-```bash
-neo4j/neo4j-community-5.26.12/bin/neo4j-admin.bat dbms set-initial-password "<password>"
-```
-
-```bash
-neo4j/neo4j-community-5.26.12/bin/neo4j.bat console
-```
-
-Then copy `.env.example` to `.env` and set `NEO4J_PASSWORD`. With Docker, `docker compose up`
-starts Neo4j together with the API and the UI (see section 17).
-
-## 15. Training
-
-CPU configuration (the one used for the reported results):
-
-```bash
-.venv/Scripts/python -m scigraph.training.train_ner --config configs/ner_cpu.yaml
-```
-
-```bash
-.venv/Scripts/python -m scigraph.training.train_re --config configs/re_cpu.yaml
-```
-
-GPU configuration (cross-sentence context, all negative pairs; provided, not run here):
-`configs/ner.yaml` and `configs/re.yaml`, or the notebooks `02_train_scibert_ner.ipynb` and
-`03_train_relation_extraction.ipynb` on Kaggle or Colab. Any parameter can be overridden,
-for example `--set epochs=3 gradient_accumulation=2`.
-
-Re-running a command with the same `output_dir` resumes from `checkpoints/last.pt`. The best
-dev checkpoint is exported to `<output_dir>/best/`. Afterwards:
-
-```bash
-.venv/Scripts/python scripts/make_report.py
-```
-
-## 16. Inference
-
-The API and the CLI look for trained models in `models/ner` and `models/re` (override with
-`SCIGRAPH_NER_DIR`, `SCIGRAPH_RE_DIR`); without them they fall back to the rule baseline and
-report `extractor: rule-baseline`.
-
-```bash
-mkdir -p models && cp -r outputs/ner/best models/ner && cp -r outputs/re/best models/re
-```
-
-```bash
-.venv/Scripts/scigraph extract data/samples/abstract_1.txt --out extraction.json
-```
-
-```bash
-.venv/Scripts/scigraph ingest data/samples
-```
-
-```bash
-.venv/Scripts/scigraph ingest-gold --split test
-```
-
-```bash
-.venv/Scripts/scigraph export-ttl graph.ttl
-```
-
-API:
-
-```bash
-.venv/Scripts/python -m uvicorn scigraph.api.main:app --port 8000
-```
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/health` | Extractor in use, Neo4j connectivity |
-| POST | `/extract` | Entities, relations and triples for a text (max 20,000 characters) |
-| POST | `/extract/pdf` | Same for a PDF upload (max 15 MB, text layer required) |
-| POST | `/graph/ingest` | Extract and store as predicted knowledge |
-| GET | `/graph/queries` | Catalogue of named queries and their parameters |
-| POST | `/graph/query` | Run a named query with validated parameters |
-| GET | `/graph/paths` | Shortest paths between two entities (1 to 5 hops) |
-| GET | `/graph/neighbourhood/{id}` | Edges within 1 to 3 hops |
-| POST | `/graph/relations/{id}/review` | Mark a relation verified or rejected |
-| POST | `/graph/infer`, GET `/graph/inferred` | Apply and list rule inferences |
-| GET | `/graph/hypotheses` | Link hypotheses (not facts) |
-| GET | `/graph/analytics`, `/graph/stats` | NetworkX analytics, counts |
-| GET | `/graph/export.ttl` | Turtle export |
-
-Interactive documentation is served at `/docs`.
-
-## 17. Application Demo
-
-```bash
-.venv/Scripts/python -m streamlit run app/streamlit_app.py
-```
-
-Pages: Document Analysis (entities), Relation Extraction (relations and triples), Knowledge
-Graph (filtered visualisation, centrality, communities), Graph Exploration (neighbourhoods,
-multi-hop paths, review queue), Scientific Queries (named queries, evidence, inferred
-relations, hypotheses), Model Evaluation (measured metrics and figures). Inputs can be
-pre-filled from the URL, for example `/?sample=1`, `/exploration?explore=crf` or
-`/queries?query=methods_for_task&task=translation&run=1`.
-
-The screenshots below were captured from the running app with the trained models and the
-demonstration graph (SciERC test predictions, SciERC test gold annotations as verified
-knowledge, the three sample abstracts) using `scripts/capture_screenshots.py`.
-
-| | |
+| Entity recognition | Relation extraction |
 |---|---|
-| ![Document analysis](docs/images/document_analysis.png) | ![Relation extraction](docs/images/relation_extraction.png) |
-| ![Knowledge graph](docs/images/knowledge_graph.png) | ![Graph exploration](docs/images/graph_exploration.png) |
-| ![Scientific queries](docs/images/scientific_queries.png) | ![Model evaluation](docs/images/model_evaluation.png) |
+| ![NER training curves](reports/figures/ner_training.png) | ![Relation extraction training curves](reports/figures/re_training.png) |
 
-With Docker (not tested on the development machine, which has no Docker; the image build
-runs in CI):
+## Building and exploring the graph
 
-```bash
-docker compose up --build
+After extraction, I normalise surface forms, resolve acronyms defined within a document, and merge mentions only when they satisfy the project's entity matching rules.
+
+Every resulting triple retains the evidence needed to inspect it later.
+
+The graph is organised around `Document`, `Mention`, and `Entity` nodes.
+
+Named relation types connect the entities, while provenance links allow a query result to be traced back to the original document and sentence.
+
+### Graph construction on the test set
+
+| Measure | Value |
+|---|---:|
+| Documents | 100 |
+| Predicted entity nodes | 1,517 |
+| Predicted triples | 1,073 |
+| Triples with a supporting sentence | 100% |
+| SHACL constraint violations | 0 |
+
+This is the **predicted graph**, not the manually annotated reference graph. The two are evaluated separately in `scripts/evaluate_graph.py`.
+
+### Graph queries and analysis
+
+I implemented named, parameterised Cypher queries rather than unrestricted text-to-query generation.
+
+They cover entity search, neighbours, scientific methods associated with a task, relation evidence, and paths of up to five hops.
+
+The NetworkX module adds centrality measures, connected components, community detection, and link hypotheses.
+
+One query I find especially useful is `methods_for_task`:
+
+```cypher
+MATCH (m:Entity {type: 'Method'})-[r:USED_FOR]->(t:Entity {type: 'Task'})
+WHERE toLower(t.name) CONTAINS toLower($task)
+  AND r.status IN $statuses
+RETURN m.name AS method,
+       t.name AS task,
+       r.score AS score,
+       r.support AS support
+ORDER BY r.support DESC, r.score DESC
+LIMIT $limit
 ```
 
-## 18. Reproducibility
+I also implemented RDF export using RDFLib.
 
-* Official SciERC splits, archive checksum recorded; preparation is deterministic.
-* Seeds for Python, NumPy and PyTorch; per-epoch shuffling and negative sampling are seeded
-  by epoch, so a resumed run sees the same batches as an uninterrupted one.
-* Every run writes its parameters (`params.json`), a JSON-lines log, predictions for dev and
-  test, and `metrics.json`; `scripts/make_report.py` derives all tables and figures from
-  these files.
-* Tests: `pytest` (unit tests need no network or GPU; Neo4j tests run with
-  `SCIGRAPH_NEO4J_TESTS=1` against a disposable instance, as in CI).
+An RDF/OWL vocabulary describes the entity types and scientific relations, SPARQL provides standardised queries, and SHACL checks the structure and provenance of exported assertions.
+
+## Application walkthrough
+
+I built a Streamlit interface to work with the project without having to inspect intermediate JSON files manually.
+
+The six pages cover document analysis, relation extraction, knowledge graph visualisation, graph exploration, scientific queries, and model evaluation.
+
+### Extracted text and relations
+
+| Document analysis | Relation extraction |
+|---|---|
+| ![Document analysis page](docs/images/document_analysis.png) | ![Relation extraction page](docs/images/relation_extraction.png) |
+
+### Exploring the knowledge graph
+
+| Knowledge graph | Graph exploration |
+|---|---|
+| ![Knowledge graph page](docs/images/knowledge_graph.png) | ![Graph exploration page](docs/images/graph_exploration.png) |
+
+### Querying and inspecting evaluation results
+
+| Scientific queries | Model evaluation |
+|---|---|
+| ![Scientific queries page](docs/images/scientific_queries.png) | ![Model evaluation page](docs/images/model_evaluation.png) |
+
+The screenshots were captured from the application using the saved model outputs and the demonstration graph.
+
+They are included to show the workflow, from selecting a document to inspecting a relation and the sentence that supports it.
+
+## Repository structure
+
+```text
+src/scigraph/
+  data/          Dataset preparation and validation
+  baseline/      Rule-based extraction
+  models/        SciBERT NER and relation classifiers
+  training/      Training and checkpoints
+  evaluation/    Model and graph evaluation
+  pipeline/      Text/PDF processing and graph creation
+  graph/         Neo4j, Cypher, RDF, inference, analytics
+  api/           FastAPI endpoints
+  resources/     Ontology and SHACL shapes
+app/             Streamlit interface
+configs/         Model and graph configurations
+docs/            Data notes and application screenshots
+reports/         Saved metrics and figures
+scripts/         Experiment and reporting scripts
+tests/           Unit and integration tests
+```
+
+## Getting started
+
+Use Python 3.11 and a running Neo4j 5 instance.
+
+The repository includes an `.env.example` file for the Neo4j connection settings.
 
 ```bash
-.venv/Scripts/python -m pytest
+python -m venv .venv
+```
+
+On Windows PowerShell:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Install the project dependencies:
+
+```bash
+python -m pip install -e ".[ui,shacl,dev]"
+python -m spacy download en_core_web_sm
+```
+
+On Linux or macOS, activate the environment with `source .venv/bin/activate` instead.
+
+Download and prepare SciERC with the provided scripts:
+
+```bash
+python scripts/download_scierc.py --out data/raw/scierc
+python scripts/prepare_data.py
+```
+
+The dataset is downloaded from its source; it is not redistributed in this repository.
+
+See [`docs/DATASET.md`](docs/DATASET.md) for the dataset notes.
+
+Training and evaluation entry points live in `src/scigraph/training/` and `scripts/`, with configurations in `configs/`.
+
+For inference, set up the saved NER and relation model directories as described in [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md).
+
+Start the API or the interactive application:
+
+```bash
+python -m uvicorn scigraph.api.main:app --port 8000
 ```
 
 ```bash
-.venv/Scripts/python -m ruff check src scripts tests app
+python -m streamlit run app/streamlit_app.py
 ```
 
-## 19. Limitations
+The API documentation is available at `http://localhost:8000/docs`.
 
-* Single training run per model (seed 42) on CPU with a reduced configuration; no variance
-  estimate and no hyperparameter search.
-* SciERC covers 500 AI abstracts; behaviour on other domains or on full papers is not
-  measured.
-* Relations are intra-sentence; there is no coreference resolution, so Generic mentions
-  ("this approach") are isolated nodes.
-* Entity resolution is lexical; synonyms with unrelated surface forms are not merged, and
-  cross-document acronyms without a definition are not expanded.
-* PDF support covers text-layer PDFs only; tables, figures, equations and scanned pages are
-  not processed.
-* Graph quality is measured against SciERC gold annotations; there is no manual
-  evaluation on new documents.
+A few CLI commands I use while working with the graph:
 
-## 20. Future Work
+```bash
+scigraph extract data/samples/abstract_1.txt --out extraction.json
+scigraph ingest data/samples
+scigraph export-ttl graph.ttl
+```
 
-* Run the GPU configuration and a multi-seed study; ablations (BERT-base, no context, no
-  markers).
-* Coreference resolution and cross-sentence relations (SciIE, DyGIE++ style).
-* Entity linking to external identifiers (Wikidata, Papers with Code).
-* Use reviewed edges from the review queue as additional training data.
-* Calibrate confidence scores so that extraction thresholds are interpretable.
+## Reproducing the experiments
 
-## 21. References
+Each training run records its configuration, predictions, metrics, and checkpoints.
 
-* Y. Luan, L. He, M. Ostendorf, H. Hajishirzi. Multi-Task Identification of Entities,
-  Relations, and Coreference for Scientific Knowledge Graph Construction. EMNLP 2018.
-* I. Beltagy, K. Lo, A. Cohan. SciBERT: A Pretrained Language Model for Scientific Text.
-  EMNLP-IJCNLP 2019.
-* Z. Zhong, D. Chen. A Frustratingly Easy Approach for Entity and Relation Extraction.
-  NAACL 2021.
-* K. Lee, L. He, M. Lewis, L. Zettlemoyer. End-to-end Neural Coreference Resolution.
-  EMNLP 2017 (span representations).
-* D. Wadden, U. Wennberg, Y. Luan, H. Hajishirzi. Entity, Relation, and Event Extraction with
-  Contextualized Span Representations. EMNLP-IJCNLP 2019.
-* B. Taillé, V. Guigue, G. Scoutheeten, P. Gallinari. Let's Stop Incorrect Comparisons in
-  End-to-end Relation Extraction! EMNLP 2020.
-* W3C. RDF 1.1 Concepts; OWL 2 Web Ontology Language; SHACL Shapes Constraint Language.
+The evaluation scripts and saved reports make it possible to check the figures in this README against the recorded outputs.
 
-## Licence
+The evaluation uses the official SciERC test split, with checkpoint selection based on the development split.
 
-Code: MIT (see `LICENSE`). SciERC is not included; see [docs/DATASET.md](docs/DATASET.md).
+- Model metrics and graph reports: [`reports/metrics/`](reports/metrics/)
+- Figures: [`reports/figures/`](reports/figures/)
+- Evaluation scripts: [`scripts/`](scripts/)
+- Test suite: `python -m pytest`
+- Code checks: `python -m ruff check src scripts tests app`
+
+## What I took from this project
+
+The most valuable part for me was connecting the modelling work to a system that can actually be inspected.
+
+Predicting an entity or relation is one step; representing that prediction consistently, retaining its evidence, and making it possible to query or review it are separate engineering problems.
+
+Building SciGraph-NLP gave me experience across all of them, from model training to knowledge representation and the application layer.
+
+I am particularly interested in continuing this work around semantic matching, entity linking, and connecting extracted knowledge to shared vocabularies and ontologies.
+
+## References
+
+- Luan et al. (2018), *Multi-Task Identification of Entities, Relations, and Coreference for Scientific Knowledge Graph Construction*.
+- Beltagy, Lo, and Cohan (2019), *SciBERT: A Pretrained Language Model for Scientific Text*.
+- Zhong and Chen (2021), *A Frustratingly Easy Approach for Entity and Relation Extraction*.
+- W3C specifications for RDF, OWL, SPARQL, and SHACL.
